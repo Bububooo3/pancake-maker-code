@@ -4,7 +4,12 @@
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
 	// GLOBALS \\
-
+const char consoleMessages[] = {\
+	"Initializing",\
+  	"Select number",\
+  	"Bake?",\
+  	"",\
+};
 
 	// CONSTANTS \\
 
@@ -30,6 +35,10 @@ bool clearLine(int lvl=-1){
   return true;
 }
 
+bool scrollLine(){
+
+}
+
 // Keyframe functions
 bool requestNumPancakes(){
 
@@ -42,6 +51,10 @@ void introductionProtocol(){
 	// RUNTIME \\
 // Run once on boot
 void setup() {
+  // Buttons
+  pinMode(7, INPUT_PULLUP);
+  
+  // LCD
   lcd.begin(16,2);
   printMessage("");
 }
