@@ -11,6 +11,9 @@ const char consoleMessages[] = {\
   	"",\
 };
 
+bool baking = false;
+bool prevConfirmState = HIGH;
+
 	// CONSTANTS \\
 // Buttons
 const int confirmPin = 7;
@@ -63,7 +66,8 @@ void setup() {
   
   // LCD
   lcd.begin(16,2);
-  printMessage("");
+  printMessage("Bake how much?");
+  printMessage("", 1);
 }
 
 // Run repeatedly
@@ -72,12 +76,16 @@ void loop() {
   String level = String(map(analogRead(A0), 0, 1023, 1, 8));
 
   // Display on LCD
-  printMessage(level, 1);
-  delay(150);
+  printMessage(((map(analogRead(A0), 0, 1023, 1, 8)>1) ? level + " Pancakes" : level + " Pancake"), 1);
   
   // Button handler
   int confirmState = (!(digitalRead(confirmPin)));
   
-  digitalWrite(confirmLEDPin, confirmState);
-  digitalWrite(conveyorMotorPin, confirmState);
+  baking = (prevConfirmState == HIGH && confirmState == LOW) ? !baking : baking;
+  
+  digitalWrite(confirmLEDPin, !baking);
+  digitalWrite(conveyorMotorPin, !baking);
+  
+  prevConfirmState = confirmState;
+  delay(50);
 }
