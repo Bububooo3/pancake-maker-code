@@ -12,7 +12,12 @@ const char consoleMessages[] = {\
 };
 
 	// CONSTANTS \\
+// Buttons
+const int confirmPin = 7;
 
+// Miscellaneous
+const int confirmLEDPin = 9;
+const int conveyorMotorPin = 10;
 
 	// FUNCTIONS \\
 // Little useful functions
@@ -52,13 +57,16 @@ void introductionProtocol(){
 // Run once on boot
 void setup() {
   // Buttons
-  pinMode(7, INPUT_PULLUP);
+  pinMode(confirmPin, INPUT_PULLUP);
+  pinMode(confirmLEDPin, OUTPUT);
+  pinMode(conveyorMotorPin, OUTPUT);
   
   // LCD
   lcd.begin(16,2);
   printMessage("");
 }
 
+// Run repeatedly
 void loop() {  
   // Map 0-1028 :: 1–8
   String level = String(map(analogRead(A0), 0, 1023, 1, 8));
@@ -66,4 +74,10 @@ void loop() {
   // Display on LCD
   printMessage(level, 1);
   delay(150);
+  
+  // Button handler
+  int confirmState = (!(digitalRead(confirmPin)));
+  
+  digitalWrite(confirmLEDPin, confirmState);
+  digitalWrite(conveyorMotorPin, confirmState);
 }
