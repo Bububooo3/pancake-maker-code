@@ -5,6 +5,9 @@
 	// GLOBALS \\
 bool baking = false;
 bool prevConfirmState = HIGH;
+String lastPrintLCD1 = "";
+String lastPrintLCD2 = "";
+String placeholder = "----------------";
 
 
 	// CONSTANTS \\
@@ -17,7 +20,7 @@ bool prevConfirmState = HIGH;
 #define MOTORPIN 10
 
 // Arrays
-const char intro[4][16] = {\
+const char intro[][16] = {\
 	"Initializing",\
   	"Select number",\
   	"Bake how much?",\
@@ -34,27 +37,34 @@ Adafruit_NeoPixel led(LEDCOUNT, LEDPIN, NEO_GRB + NEO_KHZ800);
 
 	// LIBRARY-SPECIFIC CONSTANTS \\
 // Colors
-#define WHITE strip.Color(255, 255, 255)
-#define RED strip.Color(255, 0, 0)
-#define GREEN strip.Color(0, 255, 0)
-#define BLUE strip.Color(0, 0, 255)
+#define WHITE led.Color(255, 255, 255)
+#define RED led.Color(255, 0, 0)
+#define GREEN led.Color(0, 255, 0)
+#define BLUE led.Color(0, 0, 255)
 
-#define YELLOW strip.Color(255, 255, 0)
-#define CYAN strip.Color(0, 255, 255)
-#define MAGENTA strip.Color(255, 0, 255)
-#define ORANGE strip.Color(255, 165, 0)
-#define PURPLE strip.Color(128, 0, 128)
+#define YELLOW led.Color(255, 255, 0)
+#define CYAN led.Color(0, 255, 255)
+#define MAGENTA led.Color(255, 0, 255)
+#define ORANGE led.Color(255, 165, 0)
+#define PURPLE led.Color(128, 0, 128)
 
-#define OFF strip.Color(0, 0, 0)
+#define OFF 0
 
 
 	// FUNCTIONS \\
 // Little useful functions
-bool printMessage(String msg, int line = 0, int column = 0) {
-  	lcd.setCursor(column, line);  
-	lcd.print("                ");
-	lcd.setCursor(column, line);
+bool printMessage(String msg, int line = 0) {
+  	lcd.setCursor(0, line);
+	lcd.print(placeholder);
+	lcd.setCursor(0, line);
 	lcd.print(msg);
+  
+  	if (line){
+      lastPrintLCD2 = msg;
+    }else{
+      lastPrintLCD1 = msg;
+    }
+  
   	return true;
 }
 
@@ -63,30 +73,53 @@ bool getConfirmState(){
 }
 
 bool clearLine(int lvl=-1){
-  lvl = max(lvl, 0);
-  lvl = min(lvl, 1);
-    
-  lcd.setCursor(0, lvl);
-  lcd.print("                ");
-  lcd.setCursor(0, lvl);
+  if (lvl<0){lcd.clear(); return true;}
+  lvl = constrain(lvl, 0, 1);
+  printMessage(placeholder, lvl);
   return true;
 }
 
 bool scrollLine(int num=2){
-
+  for (int i=0; (i<num); i++){
+  	printMessage(lastPrintLCD2);
+    clearLine(1);
+  }
+  return true;
 }
 
-bool setColors(int a=WHITE, int b=WHITE, int c=WHITE, int d=WHITE, int e=WHITE, int f=WHITE) {
-	led.SetPixelColor();
+bool setColors(int a=OFF, int b=OFF, int c=OFF, int d=OFF, int e=OFF, int f=OFF) {
+	led.setPixelColor(0, a);
+	led.setPixelColor(1, b);
+ 	led.setPixelColor(2, c);
+ 	led.setPixelColor(3, d);
+ 	led.setPixelColor(4, e);
+ 	led.setPixelColor(5, f);
+  	led.show();
+  return true;
+}
+
+bool disableLED() {
+	led.setPixelColor(0, OFF);
+	led.setPixelColor(1, OFF);
+ 	led.setPixelColor(2, OFF);
+ 	led.setPixelColor(3, OFF);
+ 	led.setPixelColor(4, OFF);
+ 	led.setPixelColor(5, OFF);
+  	led.show();
+  return true;
 }
 
 // Keyframe functions
 bool requestNumPancakes(){
-
+	return true;
 }
 
 void introductionProtocol(){
-
+  for (int i=0; (i<(sizeof(intro)/sizeof(intro[0]))); i++) {
+  	printMessage(intro[i]);
+    scrollLine(1);
+    delay(1500);
+  }
 }
 
 	// RUNTIME \\
@@ -101,6 +134,10 @@ void setup() {
   lcd.begin(16,2);
   printMessage("Bake how much?");
   printMessage("", 1);
+  
+  // LED
+  led.begin();
+  led.show();
 }
 
 // Run repeatedly
