@@ -1,16 +1,17 @@
 #include <Adafruit_NeoPixel.h>
-
 #include <LiquidCrystal.h>
 
-	// GLOBALS \\
+//	INTIALIZATION GLOBALS
 bool baking = false;
 bool prevConfirmState = HIGH;
 String lastPrintLCD1 = "";
 String lastPrintLCD2 = "";
-String placeholder = "----------------";
+String placeholder = "                ";
+int level = 1;
+int plevel = level;
 
 
-	// CONSTANTS \\
+	// CONSTANTS
 // Counts
 #define LEDCOUNT 6
 
@@ -28,14 +29,14 @@ const char intro[][16] = {\
 };
 
 
-	// INITIALIZE COMPONENTS \\
+	// INITIALIZE COMPONENTS
 // Initialize LCD: (RS, E, D4, D5, D6, D7)
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
 // Initialize LED Strip: (#LEDs, Pin, Color Mode + Signal)
 Adafruit_NeoPixel led(LEDCOUNT, LEDPIN, NEO_GRB + NEO_KHZ800);
 
-	// LIBRARY-SPECIFIC CONSTANTS \\
+	// LIBRARY-SPECIFIC CONSTANTS
 // Colors
 #define WHITE led.Color(255, 255, 255)
 #define RED led.Color(255, 0, 0)
@@ -51,7 +52,7 @@ Adafruit_NeoPixel led(LEDCOUNT, LEDPIN, NEO_GRB + NEO_KHZ800);
 #define OFF 0
 
 
-	// FUNCTIONS \\
+	// FUNCTIONS
 // Little useful functions
 bool printMessage(String msg, int line = 0) {
   	lcd.setCursor(0, line);
@@ -122,7 +123,8 @@ void introductionProtocol(){
   }
 }
 
-	// RUNTIME \\
+
+	// RUNTIME 
 // Run once on boot
 void setup() {
   // Buttons
@@ -141,19 +143,31 @@ void setup() {
 }
 
 // Run repeatedly
-void loop() {  
-  // Map 0-1028 :: 1–8
-  String level = String(map(analogRead(A0), 0, 1023, 1, 8));
-
-  // Display on LCD
-  printMessage(((map(analogRead(A0), 0, 1023, 1, 8)>1) ? level + " Pancakes" : level + " Pancake"), 1);
+void loop() {
   
+  
+  
+  // Map 0-1028 :: 1–8
+  level = map(analogRead(A0), 0, 1023, 1, 8);
+  
+  // LCD DISPLAY  
+  // Choose # Pancakes Screen
+  if (level != plevel && !baking){
+  	printMessage((level>1) ? (String(level) + " Pancakes") : (String(level) + " Pancake"), 1);
+    plevel = level;
+  }
+  
+  if (baking) {
+    printMessage("Baking");
+    printMessage("Pancakes",1);
+  }
+
   // Button handler  
-  baking = (prevConfirmState == HIGH && getConfirmState() == LOW) ? !baking : baking;
+  baking = ((prevConfirmState == HIGH && getConfirmState() == LOW) ? !baking : baking);
   
   digitalWrite(LEDPIN, !baking);
   digitalWrite(MOTORPIN, !baking);
   
   prevConfirmState = getConfirmState();
-  delay(50);
+  delay(150);
 }
