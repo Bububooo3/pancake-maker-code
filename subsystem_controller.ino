@@ -8,7 +8,7 @@ String lastPrintLCD1 = "";
 String lastPrintLCD2 = "";
 String placeholder = "                ";
 int level = 1;
-int plevel = level;
+int plevel = 0;
 
 
 	// CONSTANTS
@@ -22,10 +22,20 @@ int plevel = level;
 
 // Arrays
 const char intro[][16] = {\
-	"Initializing",\
-  	"Select number",\
-  	"Bake how much?",\
-  	"",\
+	"Pancake maker",\
+	"pAncake maker",\
+	"paNcake maker",\
+	"panCake maker",\
+	"pancAke maker",\
+	"pancaKe maker",\
+	"pancakE maker",\
+	"pancake Maker",\
+	"pancake mAker",\
+	"pancake maKer",\
+	"pancake makEr",\
+	"pancake makeR",\
+    "pancake maker",\
+    "",\
 };
 
 
@@ -80,14 +90,6 @@ bool clearLine(int lvl=-1){
   return true;
 }
 
-bool scrollLine(int num=2){
-  for (int i=0; (i<num); i++){
-  	printMessage(lastPrintLCD2);
-    clearLine(1);
-  }
-  return true;
-}
-
 bool setColors(int a=OFF, int b=OFF, int c=OFF, int d=OFF, int e=OFF, int f=OFF) {
 	led.setPixelColor(0, a);
 	led.setPixelColor(1, b);
@@ -118,9 +120,23 @@ bool requestNumPancakes(){
 void introductionProtocol(){
   for (int i=0; (i<(sizeof(intro)/sizeof(intro[0]))); i++) {
   	printMessage(intro[i]);
-    scrollLine(1);
-    delay(1500);
+    delay(200);
   }
+  
+  printMessage("pancake maker", 1);
+  clearLine(0);
+  delay(2000);
+  printMessage("Heating", 1);
+  delay(1500); // <-- temporary
+  
+  // Heat up heating element
+  //while (){
+  
+  
+  //}
+    
+  printMessage("Bake how much?");
+  printMessage("", 1);
 }
 
 
@@ -134,19 +150,15 @@ void setup() {
   
   // LCD
   lcd.begin(16,2);
-  printMessage("Bake how much?");
-  printMessage("", 1);
   
   // LED
   led.begin();
   led.show();
+  introductionProtocol();
 }
 
 // Run repeatedly
 void loop() {
-  
-  
-  
   // Map 0-1028 :: 1–8
   level = map(analogRead(A0), 0, 1023, 1, 8);
   
@@ -156,17 +168,18 @@ void loop() {
   	printMessage((level>1) ? (String(level) + " Pancakes") : (String(level) + " Pancake"), 1);
     plevel = level;
   }
-  
-  if (baking) {
-    printMessage("Baking");
-    printMessage("Pancakes",1);
+
+  if (baking && lastPrintLCD1 != "     Baking     ") {
+    printMessage("     Baking     ");
+    printMessage("   "+((level>1) ? (String(level) + " Pancakes") : (String(level) + " Pancake"))+"   ",1);
   }
 
   // Button handler  
-  baking = ((prevConfirmState == HIGH && getConfirmState() == LOW) ? !baking : baking);
+  baking = (prevConfirmState && getConfirmState() || baking) ? true : false;
   
-  digitalWrite(LEDPIN, !baking);
-  digitalWrite(MOTORPIN, !baking);
+  // Baking System
+  digitalWrite(LEDPIN, baking);
+  digitalWrite(MOTORPIN, baking);
   
   prevConfirmState = getConfirmState();
   delay(150);
