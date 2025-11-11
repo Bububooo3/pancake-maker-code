@@ -1,6 +1,30 @@
 #include <Adafruit_NeoPixel.h>
 #include <LiquidCrystal.h>
 
+/*
+IMPORTANT ELECTRICAL NOTE: CONCERNING HEATER
+/////////////////////////////////////////////////////
+> TinkerCAD sim doesn't support AC in the way needed for the griddle
+> For the real product, replace MOSFET w/ a solid-state relay (SSR)
+> The DC power supply represents the AC mains
+> Use relay rated >=15A @ 120V AC
+> Ask mentor/electrician if unsure
+/////////////////////////////////////////////////////
+Step-by-step Replacement Process:
+12V DC Power Suppy || 120V AC Outlet
+MOSFET  ||  Solid-state relay
+
+/////////////////////////////////////////////////////
+Griddle Details (1200 Watt)
+> 2 prongs/wires (non-grounded)
+  - Narrow blade: Hot(live) --> often black
+  - Wide blade: Neutral --> often white
+  
+> Hot wire carries 120V AC
+  - Use an extension cord. Don't cut griddle cord directly.
+
+*/
+
 //	INTIALIZATION GLOBALS
 bool baking = false;
 bool prevConfirmState = HIGH;
