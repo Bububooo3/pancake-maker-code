@@ -2,27 +2,36 @@
 #include <LiquidCrystal.h>
 
 /*
-IMPORTANT ELECTRICAL NOTE: CONCERNING HEATER
+IMPORTANT ELECTRICAL NOTE: CONCERNING HEATING ELEMENT
 /////////////////////////////////////////////////////
 > TinkerCAD sim doesn't support AC in the way needed for the griddle
 > For the real product, replace MOSFET w/ a solid-state relay (SSR)
 > The DC power supply represents the AC mains
-> Use relay rated >=15A @ 120V AC
+> Use SSR rated >=15A @ 120V AC
 > Ask mentor/electrician if unsure
+
+/////////////////////////////////////////////////////
+Reference Link
+> https://shorturl.fm/pwcKO
+
 /////////////////////////////////////////////////////
 Step-by-step Replacement Process:
 12V DC Power Suppy || 120V AC Outlet
-MOSFET  ||  Solid-state relay
+MOSFET			   ||  Solid-state relay
+  - Cut only hot wire of extension cord
+  - On the SSR, connect one end to COM & other to NO
+  - Griddle turns on when relay is on & off when relay is off
+  - DO NOT CUT NEUTRAL WIRE
 
 /////////////////////////////////////////////////////
 Griddle Details (1200 Watt)
 > 2 prongs/wires (non-grounded)
   - Narrow blade: Hot(live) --> often black
   - Wide blade: Neutral --> often white
-  
 > Hot wire carries 120V AC
   - Use an extension cord. Don't cut griddle cord directly.
-
+  - Cut cord jacket carefully & strip hot wire after cutting it.
+  
 */
 
 //	INTIALIZATION GLOBALS
@@ -38,6 +47,10 @@ int plevel = 0;
 	// CONSTANTS
 // Counts
 #define LEDCOUNT 6
+
+// Time Lengths (milliseconds)
+#define HEATUP 10000
+#define ANIMINC 200
 
 // Buttons
 #define CONFIRMPIN 7
@@ -60,6 +73,14 @@ const char intro[][16] = {\
 	"pancake makeR",\
     "pancake maker",\
     "",\
+};
+
+const char heatingAnim[][16] = {\
+	"heating",\
+	"heating.",\
+	"heating..",\
+	"heating...",\
+    "heating",\
 };
 
 
@@ -85,6 +106,13 @@ Adafruit_NeoPixel led(LEDCOUNT, LEDPIN, NEO_GRB + NEO_KHZ800);
 
 #define OFF 0
 
+// Arrays
+const uint32_t warning[6] = {YELLOW, ORANGE, YELLOW, ORANGE, YELLOW, ORANGE};
+const uint32_t danger[6] = {RED, RED, RED, RED, RED, RED};
+const uint32_t ready[6] = {GREEN, GREEN, GREEN, GREEN, GREEN, GREEN};
+const uint32_t bakingA[6] = {WHITE, YELLOW, WHITE, WHITE, WHITE, WHITE};
+const uint32_t bakingB[6] = {WHITE, WHITE, WHITE, YELLOW, WHITE, WHITE};
+const uint32_t bakingC[6] = {WHITE, WHITE, WHITE, WHITE, WHITE, YELLOW};
 
 	// FUNCTIONS
 // Little useful functions
@@ -114,7 +142,7 @@ bool clearLine(int lvl=-1){
   return true;
 }
 
-bool setColors(int a=OFF, int b=OFF, int c=OFF, int d=OFF, int e=OFF, int f=OFF) {
+bool setColors(uint32_t z[]={}, int a=OFF, int b=OFF, int c=OFF, int d=OFF, int e=OFF, int f=OFF) {
 	led.setPixelColor(0, a);
 	led.setPixelColor(1, b);
  	led.setPixelColor(2, c);
@@ -144,21 +172,24 @@ bool requestNumPancakes(){
 void introductionProtocol(){
   for (int i=0; (i<(sizeof(intro)/sizeof(intro[0]))); i++) {
   	printMessage(intro[i]);
-    delay(200);
+    delay(ANIMINC);
   }
   
-  printMessage("pancake maker", 1);
+  printMessage("By Jesuit HS", 1);
   clearLine(0);
-  delay(2000);
-  printMessage("Heating", 1);
-  delay(1500); // <-- temporary
+  delay(5000);
+  printMessage("[Please wait]", 0);
   
-  // Heat up heating element
-  //while (){
+  // Turn on relay here (heat up griddle)
   
+  for (int i=0; (i<(sizeof(heatingAnim)/sizeof(heatingAnim[0]))*(HEATUP/ANIMINC)); i++) {
+  	printMessage(heatingAnim[(i%(sizeof(heatingAnim)/sizeof(heatingAnim[0]))) + 1],1);
+    delay(ANIMINC);
+  }
   
-  //}
-    
+  printMessage("[Complete]")
+  printMessage("", 1);
+  
   printMessage("Bake how much?");
   printMessage("", 1);
 }
