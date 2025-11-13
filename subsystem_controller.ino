@@ -17,11 +17,14 @@ Reference Link
 /////////////////////////////////////////////////////
 Step-by-step Replacement Process:
 12V DC Power Suppy || 120V AC Outlet
-MOSFET			   ||  Solid-state relay
+SPDT			   ||  Solid-state relay
   - Cut only hot wire of extension cord
   - On the SSR, connect one end to COM & other to NO
   - Griddle turns on when relay is on & off when relay is off
-  - DO NOT CUT NEUTRAL WIRE
+  - DO NOT CUT NEUTL WIRE
+  - We can control T using PID , maybe if we have time
+  	^ (Not a necessity)
+    ^ (Using rate of change, current T, target T, & time passed)
 
 /////////////////////////////////////////////////////
 Griddle Details (1200 Watt)
@@ -49,13 +52,16 @@ int plevel = 0;
 #define LEDCOUNT 6
 
 // Time Lengths (milliseconds)
-#define HEATUP 10000
+#define HEATUP 2000
 #define ANIMINC 200
 
 // Buttons
 #define CONFIRMPIN 7
+
+// Appliances
 #define LEDPIN 6
 #define MOTORPIN 10
+#define GRIDPIN 8
 
 // Arrays
 const char intro[][16] = {\
@@ -177,17 +183,18 @@ void introductionProtocol(){
   
   printMessage("By Jesuit HS", 1);
   clearLine(0);
-  delay(5000);
+  delay(1500);
   printMessage("[Please wait]", 0);
   
   // Turn on relay here (heat up griddle)
   
-  for (int i=0; (i<(sizeof(heatingAnim)/sizeof(heatingAnim[0]))*(HEATUP/ANIMINC)); i++) {
-  	printMessage(heatingAnim[(i%(sizeof(heatingAnim)/sizeof(heatingAnim[0]))) + 1],1);
+  for (int i=0; (i<(HEATUP/ANIMINC)); i++) {
+    int prxy = (i%(sizeof(heatingAnim)/sizeof(heatingAnim[0]))) + 1;
+  	printMessage(heatingAnim[prxy],1);
     delay(ANIMINC);
   }
   
-  printMessage("[Complete]")
+  printMessage("[Complete]");
   printMessage("", 1);
   
   printMessage("Bake how much?");
@@ -220,13 +227,24 @@ void loop() {
   // LCD DISPLAY  
   // Choose # Pancakes Screen
   if (level != plevel && !baking){
+    if (level<8){
   	printMessage((level>1) ? (String(level) + " Pancakes") : (String(level) + " Pancake"), 1);
+    } else {
+    	printMessage("Auto-Mode", 1);
+    }
     plevel = level;
   }
 
   if (baking && lastPrintLCD1 != "     Baking     ") {
     printMessage("     Baking     ");
-    printMessage("   "+((level>1) ? (String(level) + " Pancakes") : (String(level) + " Pancake"))+"   ",1);
+    if (level<8){
+  	printMessage("   "+((level>1) ? (String(level) + " Pancakes") : (String(level) + " Pancake"))+"   ",1);
+    } else {
+    	printMessage("    Pancakes    ",1);
+    }
+    
+    // Start baking here
+    
   }
 
   // Button handler  
