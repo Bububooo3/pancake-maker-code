@@ -17,11 +17,11 @@ Reference Link
 /////////////////////////////////////////////////////
 Step-by-step Replacement Process:
 12V DC Power Suppy || 120V AC Outlet
-SPDT			   ||  Solid-state relay
+MOSFET			   ||  Solid-state relay
   - Cut only hot wire of extension cord
   - On the SSR, connect one end to COM & other to NO
   - Griddle turns on when relay is on & off when relay is off
-  - DO NOT CUT NEUTL WIRE
+  - DO NOT CUT NEUTRAL WIRE
   - We can control T using PID , maybe if we have time
   	^ (Not a necessity)
     ^ (Using rate of change, current T, target T, & time passed)
@@ -38,13 +38,15 @@ Griddle Details (1200 Watt)
 */
 
 //	INTIALIZATION GLOBALS
-bool baking = false;
+bool baking = false, prevbaking = false;
 bool prevConfirmState = HIGH;
 String lastPrintLCD1 = "";
 String lastPrintLCD2 = "";
 String placeholder = "                ";
 int level = 1;
 int plevel = 0;
+auto t_init = millis();
+unsigned long t_bake, t_vent, t_current;
 
 
 	// CONSTANTS
@@ -52,8 +54,9 @@ int plevel = 0;
 #define LEDCOUNT 6
 
 // Time Lengths (milliseconds)
-#define HEATUP 2000
-#define ANIMINC 200
+#define HEATUP 2e3
+#define ANIMINC 0.5e3
+#define COOKTIME 60e3
 
 // Buttons
 #define CONFIRMPIN 7
@@ -64,6 +67,8 @@ int plevel = 0;
 #define GRIDPIN 8
 
 // Arrays
+#define ASIZE(x) (sizeof(x) / sizeof((x)[0]))
+
 const char intro[][16] = {\
 	"Pancake maker",\
 	"pAncake maker",\
@@ -96,6 +101,7 @@ LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
 // Initialize LED Strip: (#LEDs, Pin, Color Mode + Signal)
 Adafruit_NeoPixel led(LEDCOUNT, LEDPIN, NEO_GRB + NEO_KHZ800);
+// ^ (Doesn't work in TinkerCAD sim)
 
 	// LIBRARY-SPECIFIC CONSTANTS
 // Colors
@@ -113,6 +119,8 @@ Adafruit_NeoPixel led(LEDCOUNT, LEDPIN, NEO_GRB + NEO_KHZ800);
 #define OFF 0
 
 // Arrays
+template<typename T, size_t N > size_t ArraySize(T(&)[N]){return N;}
+
 const uint32_t warning[6] = {YELLOW, ORANGE, YELLOW, ORANGE, YELLOW, ORANGE};
 const uint32_t danger[6] = {RED, RED, RED, RED, RED, RED};
 const uint32_t ready[6] = {GREEN, GREEN, GREEN, GREEN, GREEN, GREEN};
@@ -148,7 +156,7 @@ bool clearLine(int lvl=-1){
   return true;
 }
 
-bool setColors(uint32_t z[]={}, int a=OFF, int b=OFF, int c=OFF, int d=OFF, int e=OFF, int f=OFF) {
+bool setColors(int a=OFF, int b=OFF, int c=OFF, int d=OFF, int e=OFF, int f=OFF) {
 	led.setPixelColor(0, a);
 	led.setPixelColor(1, b);
  	led.setPixelColor(2, c);
@@ -156,6 +164,14 @@ bool setColors(uint32_t z[]={}, int a=OFF, int b=OFF, int c=OFF, int d=OFF, int 
  	led.setPixelColor(4, e);
  	led.setPixelColor(5, f);
   	led.show();
+  return true;
+}
+
+bool floodColors(auto z){
+  for (int i=0; i<ASIZE(z); i++) {
+  	led.setPixelColor(i, z[i]);
+  }
+  led.show();
   return true;
 }
 
@@ -176,7 +192,7 @@ bool requestNumPancakes(){
 }
 
 void introductionProtocol(){
-  for (int i=0; (i<(sizeof(intro)/sizeof(intro[0]))); i++) {
+  for (int i=0; (i<ASIZE(intro)); i++) {
   	printMessage(intro[i]);
     delay(ANIMINC);
   }
@@ -186,10 +202,11 @@ void introductionProtocol(){
   delay(1500);
   printMessage("[Please wait]", 0);
   
-  // Turn on relay here (heat up griddle)
+  digitalWrite(GRIDPIN, HIGH); // <--- This is turning on griddle
   
+  // Wait for it to heat up (timing based on trial data)
   for (int i=0; (i<(HEATUP/ANIMINC)); i++) {
-    int prxy = (i%(sizeof(heatingAnim)/sizeof(heatingAnim[0]))) + 1;
+    int prxy = (i%ASIZE(heatingAnim)) + 1;
   	printMessage(heatingAnim[prxy],1);
     delay(ANIMINC);
   }
@@ -221,6 +238,7 @@ void setup() {
 
 // Run repeatedly
 void loop() {
+  t_current = millis();
   // Map 0-1028 :: 1–8
   level = map(analogRead(A0), 0, 1023, 1, 8);
   
@@ -237,23 +255,27 @@ void loop() {
 
   if (baking && lastPrintLCD1 != "     Baking     ") {
     printMessage("     Baking     ");
+    floodColors(warning);
+    led.setPixelColor(0,RED);
     if (level<8){
   	printMessage("   "+((level>1) ? (String(level) + " Pancakes") : (String(level) + " Pancake"))+"   ",1);
     } else {
     	printMessage("    Pancakes    ",1);
     }
     
-    // Start baking here
+    // Start baking here (dispensing)
     
   }
 
   // Button handler  
   baking = (prevConfirmState && getConfirmState() || baking) ? true : false;
+  t_bake = (baking && !prevbaking) ? millis() : t_bake; // THIS IS WHERE WE LEFT OFF
   
   // Baking System
   digitalWrite(LEDPIN, baking);
   digitalWrite(MOTORPIN, baking);
   
   prevConfirmState = getConfirmState();
+  prevbaking = baking;
   delay(150);
 }
