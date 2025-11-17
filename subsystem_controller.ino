@@ -38,8 +38,8 @@ Griddle Details (1200 Watt)
 */
 
 //	INTIALIZATION GLOBALS
-bool baking = false, prevbaking = false;
-bool prevConfirmState = HIGH;
+bool baking = false, prevbaking = false, requesting = false;
+bool prevConfirmState = HIGH, prevCancelState = HIGH;
 String lastPrintLCD1 = "";
 String lastPrintLCD2 = "";
 String placeholder = "                ";
@@ -51,26 +51,28 @@ unsigned long t_bake, t_vent, t_current;
 
 	// CONSTANTS
 // Counts
-#define LEDCOUNT 6
+#define LEDCOUNT 	6
 
 // Time Lengths (milliseconds)
-#define HEATUP 2e3
-#define ANIMINC 0.5e3
-#define COOKTIME 60e3
+#define HEATUP		2e3
+#define ANIMINC 	25e1
+#define COOKTIME 	60e3
 
 // Buttons
-#define CONFIRMPIN 7
+// Imagine confirm green & cancel red
+#define CONFIRMPIN 	7
+#define CANCELPIN 	9
 
 // Appliances
-#define LEDPIN 6
-#define MOTORPIN 10
-#define GRIDPIN 8
+#define LEDPIN 		6
+#define MOTORPIN 	10
+#define GRIDPIN 	8
 
 // Arrays
 #define ASIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 const char intro[][16] = {\
-	"Pancake maker",\
+	"pancake maker",\
 	"pAncake maker",\
 	"paNcake maker",\
 	"panCake maker",\
@@ -82,8 +84,7 @@ const char intro[][16] = {\
 	"pancake maKer",\
 	"pancake makEr",\
 	"pancake makeR",\
-    "pancake maker",\
-    "",\
+    " ",\
 };
 
 const char heatingAnim[][16] = {\
@@ -149,6 +150,10 @@ bool getConfirmState(){
 	return !(digitalRead(CONFIRMPIN));
 }
 
+bool getCancelState(){
+	return !(digitalRead(CANCELPIN));
+}
+
 bool clearLine(int lvl=-1){
   if (lvl<0){lcd.clear(); return true;}
   lvl = constrain(lvl, 0, 1);
@@ -188,6 +193,8 @@ bool disableLED() {
 
 // Keyframe functions
 bool requestNumPancakes(){
+  	printMessage("Bake how much?");
+ 	printMessage("", 1);
 	return true;
 }
 
@@ -213,11 +220,13 @@ void introductionProtocol(){
   
   printMessage("[Complete]");
   printMessage("", 1);
-  
-  printMessage("Bake how much?");
-  printMessage("", 1);
 }
 
+void syncM_Data(){
+	prevConfirmState = getConfirmState();
+  	prevCancelState = getCancelState();
+  	prevbaking = baking;
+}
 
 	// RUNTIME 
 // Run once on boot
@@ -239,43 +248,48 @@ void setup() {
 // Run repeatedly
 void loop() {
   t_current = millis();
-  // Map 0-1028 :: 1–8
-  level = map(analogRead(A0), 0, 1023, 1, 8);
   
-  // LCD DISPLAY  
-  // Choose # Pancakes Screen
-  if (level != plevel && !baking){
-    if (level<8){
-  	printMessage((level>1) ? (String(level) + " Pancakes") : (String(level) + " Pancake"), 1);
-    } else {
-    	printMessage("Auto-Mode", 1);
-    }
-    plevel = level;
+  if (!requesting && !baking){requesting = requestNumPancakes();}
+  if (requesting && !baking){
+  	// Map 0-1028 :: 1–17
+  	level = map(analogRead(A0), 0, 1023, 1, 17);
+    
+  	// Choose # Pancakes Screen
+  	if (level != plevel && !baking){
+    	if (level<17){
+  			printMessage((level>1) ? (String(level) + " Pancakes") : (String(level) + " Pancake"), 1);
+    	} else {
+    		printMessage("Auto-Mode", 1);
+    	}
+    	plevel = level;
+  	}
   }
-
+  
   if (baking && lastPrintLCD1 != "     Baking     ") {
     printMessage("     Baking     ");
-    floodColors(warning);
-    led.setPixelColor(0,RED);
-    if (level<8){
-  	printMessage("   "+((level>1) ? (String(level) + " Pancakes") : (String(level) + " Pancake"))+"   ",1);
-    } else {
-    	printMessage("    Pancakes    ",1);
-    }
+    floodColors(warning); // Figure out color scene
+    
+    //if (level<17){
+  	//	printMessage("   "+((level>1) ? (String(level) + " Pancakes") : (String(level) + " Pancake"))+"   ",1);
+    //} else {
+    //	printMessage("    Pancakes    ",1);
+    //}
+    
+    printMessage(String(float(t_bake)/1000.0), 1);
     
     // Start baking here (dispensing)
-    
+    // Figure out how to detect when we're out of batter too
   }
 
   // Button handler  
-  baking = (prevConfirmState && getConfirmState() || baking) ? true : false;
-  t_bake = (baking && !prevbaking) ? millis() : t_bake; // THIS IS WHERE WE LEFT OFF
+  baking = (requesting && prevConfirmState && getConfirmState() || baking) ? true : false;
+  requesting = !baking;
+  t_bake = (!requesting && baking) ? millis() : t_bake; // THIS IS WHERE WE LEFT OFF <-- love it
   
   // Baking System
   digitalWrite(LEDPIN, baking);
   digitalWrite(MOTORPIN, baking);
   
-  prevConfirmState = getConfirmState();
-  prevbaking = baking;
+  syncM_Data();
   delay(150);
 }
