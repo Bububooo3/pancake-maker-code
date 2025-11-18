@@ -38,7 +38,7 @@ Griddle Details (1200 Watt)
 */
 
 //	INTIALIZATION GLOBALS
-bool baking = false, prevbaking = false, requesting = false;
+bool baking = false, prevbaking = false, requesting = false, cancelMode = false;
 bool prevConfirmState = HIGH, prevCancelState = HIGH;
 String lastPrintLCD1 = "";
 String lastPrintLCD2 = "";
@@ -131,6 +131,10 @@ const uint32_t bakingC[6] = {WHITE, WHITE, WHITE, WHITE, WHITE, YELLOW};
 
 	// FUNCTIONS
 // Little useful functions
+String center(String msg) {
+	return placeholder.substring(0,(16-msg.length())/2)+msg;
+}
+
 bool printMessage(String msg, int line = 0) {
   	lcd.setCursor(0, line);
 	lcd.print(placeholder);
@@ -222,11 +226,25 @@ void introductionProtocol(){
   printMessage("", 1);
 }
 
-void syncM_Data(){
+void update(){
+    // Button handler  
+  	baking = (requesting && prevConfirmState && getConfirmState() || baking) ? true : false;
+  	if (requesting && prevConfirmState && getConfirmState() || baking){requesting=false;}
+  	t_bake = ((!requesting)&& baking) ? millis() : t_bake; // THIS IS WHERE WE LEFT OFF <-- love it
+  
+  	// Baking System
+  	digitalWrite(LEDPIN, baking);
+  	digitalWrite(MOTORPIN, baking);
+  	
 	prevConfirmState = getConfirmState();
   	prevCancelState = getCancelState();
   	prevbaking = baking;
 }
+
+	// FXN-DEPENDENT VARIABLES (for optimization & such)
+const String bMsg = center("Baking");
+const String spMsg = " Pancake";
+const String spsMsg = " Pancakes";
 
 	// RUNTIME 
 // Run once on boot
@@ -247,6 +265,8 @@ void setup() {
 
 // Run repeatedly
 void loop() {
+  if (cancelMode) {goto onCancel;}
+
   t_current = millis();
   
   if (!requesting && !baking){requesting = requestNumPancakes();}
@@ -257,7 +277,7 @@ void loop() {
   	// Choose # Pancakes Screen
   	if (level != plevel && !baking){
     	if (level<17){
-  			printMessage((level>1) ? (String(level) + " Pancakes") : (String(level) + " Pancake"), 1);
+  			printMessage((level>1) ? (String(level) + spsMsg) : (String(level) + spMsg), 1);
     	} else {
     		printMessage("Auto-Mode", 1);
     	}
@@ -265,31 +285,37 @@ void loop() {
   	}
   }
   
-  if (baking && lastPrintLCD1 != "     Baking     ") {
-    printMessage("     Baking     ");
+  if (lastPrintLCD1 != bMsg && baking) {
+    printMessage(bMsg);
     floodColors(warning); // Figure out color scene
+  } else if (baking) {
+    printMessage(center("["+String(float(t_bake)/1000.0))+"]", 1);
+    
+    // Start baking here (dispensing)
+    // Figure out how to detect when we're out of batter too
     
     //if (level<17){
   	//	printMessage("   "+((level>1) ? (String(level) + " Pancakes") : (String(level) + " Pancake"))+"   ",1);
     //} else {
     //	printMessage("    Pancakes    ",1);
     //}
-    
-    printMessage(String(float(t_bake)/1000.0), 1);
-    
-    // Start baking here (dispensing)
-    // Figure out how to detect when we're out of batter too
+   
   }
-
-  // Button handler  
-  baking = (requesting && prevConfirmState && getConfirmState() || baking) ? true : false;
-  requesting = !baking;
-  t_bake = (!requesting && baking) ? millis() : t_bake; // THIS IS WHERE WE LEFT OFF <-- love it
   
-  // Baking System
-  digitalWrite(LEDPIN, baking);
-  digitalWrite(MOTORPIN, baking);
+  // Handle cancel button cases (on pressed)
+  if(getCancelState() && !prevCancelState){
+    if (baking) {
+    	baking = false;
+      	requesting = true;
+    } else if (requesting) {
+    	requesting = false;
+    }
+  }
   
-  syncM_Data();
+  update();
+  
+  onCancel:
+  	// we'll see
+  
   delay(150);
 }
