@@ -46,7 +46,7 @@ String placeholder = "                ";
 int level = 1;
 int plevel = 0;
 auto t_init = millis();
-unsigned long t_bake, t_vent, t_current;
+unsigned long t_bake, t_vent, t_current, t_terminated;
 
 
 	// CONSTANTS
@@ -67,9 +67,6 @@ unsigned long t_bake, t_vent, t_current;
 #define LEDPIN 		6
 #define MOTORPIN 	10
 #define GRIDPIN 	8
-
-// Arrays
-#define ASIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 const char intro[][16] = {\
 	"pancake maker",\
@@ -119,9 +116,7 @@ Adafruit_NeoPixel led(LEDCOUNT, LEDPIN, NEO_GRB + NEO_KHZ800);
 
 #define OFF 0
 
-// Arrays
-template<typename T, size_t N > size_t ArraySize(T(&)[N]){return N;}
-
+// Presets
 const uint32_t warning[6] = {YELLOW, ORANGE, YELLOW, ORANGE, YELLOW, ORANGE};
 const uint32_t danger[6] = {RED, RED, RED, RED, RED, RED};
 const uint32_t ready[6] = {GREEN, GREEN, GREEN, GREEN, GREEN, GREEN};
@@ -131,11 +126,16 @@ const uint32_t bakingC[6] = {WHITE, WHITE, WHITE, WHITE, WHITE, YELLOW};
 
 	// FUNCTIONS
 // Little useful functions
+#define getArraySize(a) 	(sizeof(a) / sizeof((a)[0]))	
+#define getConfirmState() 	(!(digitalRead(CONFIRMPIN)))
+#define getCancelState() 	(!(digitalRead(CANCELPIN)))
+
 String center(String msg) {
-	return placeholder.substring(0,(16-msg.length())/2)+msg;
+	return (msg.length()<=16) ? placeholder.substring(0,(16-msg.length())/2)+msg : msg.substring(0,17);
 }
 
 bool printMessage(String msg, int line = 0) {
+  	line = constrain(line, 0, 1);
   	lcd.setCursor(0, line);
 	lcd.print(placeholder);
 	lcd.setCursor(0, line);
@@ -148,14 +148,6 @@ bool printMessage(String msg, int line = 0) {
     }
   
   	return true;
-}
-
-bool getConfirmState(){
-	return !(digitalRead(CONFIRMPIN));
-}
-
-bool getCancelState(){
-	return !(digitalRead(CANCELPIN));
 }
 
 bool clearLine(int lvl=-1){
@@ -177,7 +169,7 @@ bool setColors(int a=OFF, int b=OFF, int c=OFF, int d=OFF, int e=OFF, int f=OFF)
 }
 
 bool floodColors(auto z){
-  for (int i=0; i<ASIZE(z); i++) {
+  for (int i=0; i<getArraySize(z); i++) {
   	led.setPixelColor(i, z[i]);
   }
   led.show();
@@ -203,7 +195,7 @@ bool requestNumPancakes(){
 }
 
 void introductionProtocol(){
-  for (int i=0; (i<ASIZE(intro)); i++) {
+  for (int i=0; (i<getArraySize(intro)); i++) {
   	printMessage(intro[i]);
     delay(ANIMINC);
   }
@@ -217,7 +209,7 @@ void introductionProtocol(){
   
   // Wait for it to heat up (timing based on trial data)
   for (int i=0; (i<(HEATUP/ANIMINC)); i++) {
-    int prxy = (i%ASIZE(heatingAnim)) + 1;
+    int prxy = (i%getArraySize(heatingAnim)) + 1;
   	printMessage(heatingAnim[prxy],1);
     delay(ANIMINC);
   }
@@ -239,12 +231,28 @@ void update(){
 	prevConfirmState = getConfirmState();
   	prevCancelState = getCancelState();
   	prevbaking = baking;
+  
+    // Handle cancel button cases (on pressed or released)
+  	if (!cancelMode && (getCancelState() != prevCancelState)){
+    	cancelMode = true;
+        if (baking) {
+    		baking = false;
+      		requesting = true;
+    	} else if (requesting) {
+    		requesting = false;
+    	}
+      
+   		clearLine();
+  }
 }
 
-	// FXN-DEPENDENT VARIABLES (for optimization & such)
+	// EXTRA INTERFACE CONSTANTS (for optimization, convenience & such)
 const String bMsg = center("Baking");
-const String spMsg = " Pancake";
-const String spsMsg = " Pancakes";
+const String spsMsg = "Pancakes"; // The word Pancakes
+const String spMsg = spsMsg.substring(0,7); // The word Pancake
+const String eMsg1 = center("/   Action   \\"); // Cancel display line 1
+const String eMsg2 = center("\\ Terminated /"); // Cancel display line 2
+const String amt = "Auto-Mode";
 
 	// RUNTIME 
 // Run once on boot
@@ -277,45 +285,40 @@ void loop() {
   	// Choose # Pancakes Screen
   	if (level != plevel && !baking){
     	if (level<17){
-  			printMessage((level>1) ? (String(level) + spsMsg) : (String(level) + spMsg), 1);
+  			printMessage((level>1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg), 1);
     	} else {
-    		printMessage("Auto-Mode", 1);
+    		printMessage(amt, 1);
     	}
     	plevel = level;
   	}
   }
   
-  if (lastPrintLCD1 != bMsg && baking) {
+  if (!lastPrintLCD1.equals(bMsg) && baking) {
     printMessage(bMsg);
     floodColors(warning); // Figure out color scene
   } else if (baking) {
-    printMessage(center("["+String(float(t_bake)/1000.0))+"]", 1);
+    
+    // printMessage(center("["+String(float(t_bake/10)/100.0))+"]", 1);
     
     // Start baking here (dispensing)
     // Figure out how to detect when we're out of batter too
-    
-    //if (level<17){
-  	//	printMessage("   "+((level>1) ? (String(level) + " Pancakes") : (String(level) + " Pancake"))+"   ",1);
-    //} else {
-    //	printMessage("    Pancakes    ",1);
-    //}
-   
-  }
-  
-  // Handle cancel button cases (on pressed)
-  if(getCancelState() && !prevCancelState){
-    if (baking) {
-    	baking = false;
-      	requesting = true;
-    } else if (requesting) {
-    	requesting = false;
+    if (lastPrintLCD2.equals( ( )||( ) )) { // <---LEFTOFF HERE 11/19/25
+    	if (level<17){
+  			printMessage(center(((level>1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg))),1);
+    	} else {
+    		printMessage(center(spsMsg),1);
+    	}
     }
   }
   
-  update();
+  update(); // Updates button states
   
-  onCancel:
-  	// we'll see
+  onCancel: if (cancelMode){
+  	if (!lastPrintLCD1.equals(eMsg1)){
+  		printMessage(eMsg1);
+    	printMessage(eMsg2,1);
+  	}
+  }
   
   delay(150);
 }
