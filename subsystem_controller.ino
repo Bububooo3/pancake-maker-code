@@ -39,7 +39,7 @@ Griddle Details (1200 Watt)
 
 //	INTIALIZATION GLOBALS
 bool baking = false, prevbaking = false, requesting = false, cancelMode = false;
-bool prevConfirmState = HIGH, prevCancelState = HIGH;
+bool prevConfirmState = HIGH, prevCancelState = LOW;
 String lastPrintLCD1 = "";
 String lastPrintLCD2 = "";
 String placeholder = "                ";
@@ -68,6 +68,7 @@ unsigned long t_bake, t_vent, t_current, t_terminated;
 #define MOTORPIN 	10
 #define GRIDPIN 	8
 
+// Arrays
 const char intro[][16] = {\
 	"pancake maker",\
 	"pAncake maker",\
@@ -168,8 +169,10 @@ bool setColors(int a=OFF, int b=OFF, int c=OFF, int d=OFF, int e=OFF, int f=OFF)
   return true;
 }
 
-bool floodColors(auto z){
-  for (int i=0; i<getArraySize(z); i++) {
+bool floodColors(uint32_t z[]) {
+  if (getArraySize(z)<6) {return false;}
+  
+  for (int i=0; i<6; i++) {
   	led.setPixelColor(i, z[i]);
   }
   led.show();
@@ -223,18 +226,9 @@ void update(){
   	baking = (requesting && prevConfirmState && getConfirmState() || baking) ? true : false;
   	if (requesting && prevConfirmState && getConfirmState() || baking){requesting=false;}
   	t_bake = ((!requesting)&& baking) ? millis() : t_bake; // THIS IS WHERE WE LEFT OFF <-- love it
-  
-  	// Baking System
-  	digitalWrite(LEDPIN, baking);
-  	digitalWrite(MOTORPIN, baking);
   	
-	prevConfirmState = getConfirmState();
-  	prevCancelState = getCancelState();
-  	prevbaking = baking;
-  
-    // Handle cancel button cases (on pressed or released)
+  	// Handle cancel button cases (on pressed or released)
   	if (!cancelMode && (getCancelState() != prevCancelState)){
-    	cancelMode = true;
         if (baking) {
     		baking = false;
       		requesting = true;
@@ -243,13 +237,24 @@ void update(){
     	}
       
    		clearLine();
-  }
+      	cancelMode = true;
+ 	 }
+  
+  	// Baking System
+  	digitalWrite(LEDPIN, baking);
+  	digitalWrite(MOTORPIN, baking);
+  	
+	prevConfirmState = getConfirmState();
+  	prevCancelState = getCancelState();
+  	prevbaking = baking;
 }
 
 	// EXTRA INTERFACE CONSTANTS (for optimization, convenience & such)
 const String bMsg = center("Baking");
 const String spsMsg = "Pancakes"; // The word Pancakes
 const String spMsg = spsMsg.substring(0,7); // The word Pancake
+const String cspsMsg = center(spsMsg);
+const String cspMsg = center(spMsg);
 const String eMsg1 = center("/   Action   \\"); // Cancel display line 1
 const String eMsg2 = center("\\ Terminated /"); // Cancel display line 2
 const String amt = "Auto-Mode";
@@ -259,6 +264,7 @@ const String amt = "Auto-Mode";
 void setup() {
   // Buttons
   pinMode(CONFIRMPIN, INPUT_PULLUP);
+  pinMode(CANCELPIN, INPUT_PULLUP);
   pinMode(LEDPIN, OUTPUT);
   pinMode(MOTORPIN, OUTPUT);
   
@@ -269,6 +275,9 @@ void setup() {
   led.begin();
   led.show();
   introductionProtocol();
+  
+  // Debugging Purposes (no debugger in sim)
+  Serial.begin(9600);
 }
 
 // Run repeatedly
@@ -302,12 +311,9 @@ void loop() {
     
     // Start baking here (dispensing)
     // Figure out how to detect when we're out of batter too
-    if (lastPrintLCD2.equals( ( )||( ) )) { // <---LEFTOFF HERE 11/19/25
-    	if (level<17){
-  			printMessage(center(((level>1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg))),1);
-    	} else {
-    		printMessage(center(spsMsg),1);
-    	}
+    auto temporaryPrint = (level<17) ? center(((level>1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg))) : spsMsg;
+    if (!lastPrintLCD2.equals(temporaryPrint)) {
+    	printMessage(temporaryPrint,1);
     }
   }
   
