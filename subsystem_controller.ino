@@ -45,8 +45,8 @@ String lastPrintLCD2 = "";
 String placeholder = "                ";
 int level = 1;
 int plevel = 0;
-auto t_init = millis();
-unsigned long t_bake, t_vent, t_current, t_terminated;
+auto const t_init = millis();
+signed long t_bake, t_vent, t_current, t_terminated;
 
 
 	// CONSTANTS
@@ -169,12 +169,10 @@ bool setColors(int a=OFF, int b=OFF, int c=OFF, int d=OFF, int e=OFF, int f=OFF)
   return true;
 }
 
-bool floodColors(uint32_t z[]) {
+bool floodColors(const uint32_t z[6]) {
   if (getArraySize(z)<6) {return false;}
+  setColors(z[0],z[1],z[2],z[3],z[4],z[5]);
   
-  for (int i=0; i<6; i++) {
-  	led.setPixelColor(i, z[i]);
-  }
   led.show();
   return true;
 }
@@ -219,13 +217,36 @@ void introductionProtocol(){
   
   printMessage("[Complete]");
   printMessage("", 1);
+  delay(1500);
+}
+
+// Time fxns, b/c we're tryna save time here (& such)
+// signed long t_bake, t_vent, t_current, t_terminated;
+
+bool setTimerEnabled(signed long t_var, bool t) {
+	t_var = (t ? 0.0 : -1.0);
+  	return (t_var>=0);
+}
+
+void incrementEnabled() {
+  // new time equals old time plus delta time iff timer is enabled
+  t_bake += ((t_bake >= 0) ? (t_current-t_bake) : 0.0);
+  t_vent += ((t_vent >= 0) ? (t_current-t_vent) : 0.0);
+  t_terminated += ((t_terminated >= 0) ? (t_current-t_terminated) : 0.0);
 }
 
 void update(){
+  	// Timers
+  	incrementEnabled();
+  	
+  	// Set them for next time
+  	setTimerEnabled(t_bake, ((!requesting)&& baking));
+  	setTimerEnabled(t_terminated, cancelMode);
+  	// setTimerEnabed(t_vent, ???); <-- Figure out vents
+  
     // Button handler  
   	baking = (requesting && prevConfirmState && getConfirmState() || baking) ? true : false;
   	if (requesting && prevConfirmState && getConfirmState() || baking){requesting=false;}
-  	t_bake = ((!requesting)&& baking) ? millis() : t_bake; // THIS IS WHERE WE LEFT OFF <-- love it
   	
   	// Handle cancel button cases (on pressed or released)
   	if (!cancelMode && (getCancelState() != prevCancelState)){
@@ -253,7 +274,7 @@ void update(){
 const String bMsg = center("Baking");
 const String spsMsg = "Pancakes"; // The word Pancakes
 const String spMsg = spsMsg.substring(0,7); // The word Pancake
-const String cspsMsg = center(spsMsg);
+const String cspsMsg = center(spsMsg); // So comprehensive 😍
 const String cspMsg = center(spMsg);
 const String eMsg1 = center("/   Action   \\"); // Cancel display line 1
 const String eMsg2 = center("\\ Terminated /"); // Cancel display line 2
@@ -283,8 +304,6 @@ void setup() {
 // Run repeatedly
 void loop() {
   if (cancelMode) {goto onCancel;}
-
-  t_current = millis();
   
   if (!requesting && !baking){requesting = requestNumPancakes();}
   if (requesting && !baking){
@@ -307,7 +326,8 @@ void loop() {
     floodColors(warning); // Figure out color scene
   } else if (baking) {
     
-    // printMessage(center("["+String(float(t_bake/10)/100.0))+"]", 1);
+    // Time display for debugging
+    // printMessage(center("["+String(float(TIMEVARHERE/10)/100.0))+"]", 1);
     
     // Start baking here (dispensing)
     // Figure out how to detect when we're out of batter too
@@ -317,7 +337,8 @@ void loop() {
     }
   }
   
-  update(); // Updates button states
+  t_current = millis() - t_init; // Increment current time separately
+  update(); // Updates button states & time trackers
   
   onCancel: if (cancelMode){
   	if (!lastPrintLCD1.equals(eMsg1)){
