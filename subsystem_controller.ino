@@ -46,8 +46,11 @@ String placeholder = "                ";
 int level = 1;
 int plevel = 0;
 auto const t_init = millis();
-signed long t_bake, t_vent, t_current, t_terminated;
-
+unsigned long t_current;
+signed long t_bake = -1.0L;
+signed long t_vent = -1.0L;
+signed long t_terminated = -1.0L;
+unsigned long dt = 0.0L;
 
 	// CONSTANTS
 // Counts
@@ -220,19 +223,14 @@ void introductionProtocol(){
   delay(1500);
 }
 
-// Time fxns, b/c we're tryna save time here (& such)
 // signed long t_bake, t_vent, t_current, t_terminated;
 
-bool setTimerEnabled(signed long t_var, bool t) {
-	t_var = (t ? 0.0 : -1.0);
-  	return (t_var>=0);
-}
-
 void incrementEnabled() {
-  // new time equals old time plus delta time iff timer is enabled
-  t_bake += ((t_bake >= 0) ? (t_current-t_bake) : 0.0);
-  t_vent += ((t_vent >= 0) ? (t_current-t_vent) : 0.0);
-  t_terminated += ((t_terminated >= 0) ? (t_current-t_terminated) : 0.0);
+  dt = t_current-t_init;
+  // ig we have to add a bunch of variables for each timer to track init and prevInit to increment properly
+  t_bake = ((t_bake >= 0.0L) ? dt : t_bake);
+  t_vent = ((t_vent >= 0.0L) ? dt : t_bake);
+  t_terminated = ((t_terminated >= 0L) ? dt : t_bake);
 }
 
 void update(){
@@ -240,25 +238,23 @@ void update(){
   	incrementEnabled();
   	
   	// Set them for next time
-  	setTimerEnabled(t_bake, ((!requesting)&& baking));
-  	setTimerEnabled(t_terminated, cancelMode);
-  	// setTimerEnabed(t_vent, ???); <-- Figure out vents
+  	t_bake = ((!requesting)&& baking) ? t_bake : -1.0;
+  	// t_vent = (IDK YET) ? t_vent : -1.0;
+  	t_terminated = (cancelMode) ? t_terminated : -1.0L;
   
     // Button handler  
   	baking = (requesting && prevConfirmState && getConfirmState() || baking) ? true : false;
   	if (requesting && prevConfirmState && getConfirmState() || baking){requesting=false;}
   	
-  	// Handle cancel button cases (on pressed or released)
-  	if (!cancelMode && (getCancelState() != prevCancelState)){
-        if (baking) {
-    		baking = false;
-      		requesting = true;
-    	} else if (requesting) {
-    		requesting = false;
-    	}
+  	// Handle cancel button cases (on released)
+  	if (getCancelState() != prevCancelState && prevCancelState){
+        baking = false;
+      	requesting = !requesting;
       
    		clearLine();
       	cancelMode = true;
+      
+      	Serial.println("CANCELLED");
  	 }
   
   	// Baking System
@@ -268,6 +264,16 @@ void update(){
 	prevConfirmState = getConfirmState();
   	prevCancelState = getCancelState();
   	prevbaking = baking;
+  	
+  	// for debugging stuff
+  	Serial.println("======================");
+  	Serial.println("Timers");
+  	Serial.print("| B: "); Serial.println(t_bake);
+    Serial.print("| T: "); Serial.println(t_terminated);
+  	Serial.print("| V: "); Serial.println(t_vent);
+    Serial.print("| C: "); Serial.println(t_current);
+
+  	t_current = millis() - t_init; // Increment current time separately
 }
 
 	// EXTRA INTERFACE CONSTANTS (for optimization, convenience & such)
@@ -322,6 +328,7 @@ void loop() {
   }
   
   if (!lastPrintLCD1.equals(bMsg) && baking) {
+    t_bake = 0.0L;
     printMessage(bMsg);
     floodColors(warning); // Figure out color scene
   } else if (baking) {
@@ -337,14 +344,17 @@ void loop() {
     }
   }
   
-  t_current = millis() - t_init; // Increment current time separately
   update(); // Updates button states & time trackers
   
   onCancel: if (cancelMode){
   	if (!lastPrintLCD1.equals(eMsg1)){
   		printMessage(eMsg1);
     	printMessage(eMsg2,1);
+      	t_bake = -1.0L;
+      	t_terminated = 0.0L;
   	}
+    
+    update();
   }
   
   delay(150);
