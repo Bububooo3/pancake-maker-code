@@ -47,10 +47,7 @@ int level = 1;
 int plevel = 0;
 auto const t_init = millis();
 unsigned long t_current;
-signed long t_bake = -1.0L;
-signed long t_vent = -1.0L;
-signed long t_terminated = -1.0L;
-unsigned long dt = 0.0L;
+unsigned long t_bake, t_kill, t_vent;
 
 	// CONSTANTS
 // Counts
@@ -70,6 +67,7 @@ unsigned long dt = 0.0L;
 #define LEDPIN 		6
 #define MOTORPIN 	10
 #define GRIDPIN 	8
+#define FANPIN		13
 
 // Arrays
 const char intro[][16] = {\
@@ -191,6 +189,10 @@ bool disableLED() {
   return true;
 }
 
+void setFanPower(float i) {
+	analogWrite(FANPIN, 255*constrain(i,0,1)); // automatically becomes integer
+}
+
 // Keyframe functions
 bool requestNumPancakes(){
   	printMessage("Bake how much?");
@@ -223,31 +225,22 @@ void introductionProtocol(){
   delay(1500);
 }
 
-// signed long t_bake, t_vent, t_current, t_terminated;
-
-void incrementEnabled() {
-  dt = t_current-t_init;
-  // ig we have to add a bunch of variables for each timer to track init and prevInit to increment properly
-  t_bake = ((t_bake >= 0.0L) ? dt : t_bake);
-  t_vent = ((t_vent >= 0.0L) ? dt : t_bake);
-  t_terminated = ((t_terminated >= 0L) ? dt : t_bake);
-}
-
-void update(){
-  	// Timers
-  	incrementEnabled();
-  	
+void update(){ 	
   	// Set them for next time
-  	t_bake = ((!requesting)&& baking) ? t_bake : -1.0;
+  	t_bake = ((!requesting)&& baking) ? t_bake : 0.0L;
   	// t_vent = (IDK YET) ? t_vent : -1.0;
-  	t_terminated = (cancelMode) ? t_terminated : -1.0L;
+  	t_terminated = (cancelMode) ? t_terminated : 0.0L;
   
-    // Button handler  
+  	t_bake = (requesting && prevConfirmState && getConfirmState() && !baking) ? t_init-millis() : t_bake;
+    // t_vent_init = (requesting && prevConfirmState && getConfirmState() && !baking) ? t_current : 0.0L;
+  	// t_terminated_init = (requesting && prevConfirmState && getConfirmState() && !baking) ? t_current : 0.0L;
+  	
+  	// Button handler
   	baking = (requesting && prevConfirmState && getConfirmState() || baking) ? true : false;
   	if (requesting && prevConfirmState && getConfirmState() || baking){requesting=false;}
   	
   	// Handle cancel button cases (on released)
-  	if (getCancelState() != prevCancelState && prevCancelState){
+  	if (!getCancelState() && prevCancelState){
         baking = false;
       	requesting = !requesting;
       
@@ -269,7 +262,7 @@ void update(){
   	Serial.println("======================");
   	Serial.println("Timers");
   	Serial.print("| B: "); Serial.println(t_bake);
-    Serial.print("| T: "); Serial.println(t_terminated);
+    Serial.print("| T: "); Serial.println(t_kill);
   	Serial.print("| V: "); Serial.println(t_vent);
     Serial.print("| C: "); Serial.println(t_current);
 
@@ -289,9 +282,10 @@ const String amt = "Auto-Mode";
 	// RUNTIME 
 // Run once on boot
 void setup() {
-  // Buttons
+  // Pin Initialization
   pinMode(CONFIRMPIN, INPUT_PULLUP);
   pinMode(CANCELPIN, INPUT_PULLUP);
+  pinMode(FANPIN, OUTPUT);
   pinMode(LEDPIN, OUTPUT);
   pinMode(MOTORPIN, OUTPUT);
   
@@ -350,8 +344,8 @@ void loop() {
   	if (!lastPrintLCD1.equals(eMsg1)){
   		printMessage(eMsg1);
     	printMessage(eMsg2,1);
-      	t_bake = -1.0L;
-      	t_terminated = 0.0L;
+      	t_bake = 0.0L;
+      	t_kill = t_init-millis();
   	}
     
     update();
