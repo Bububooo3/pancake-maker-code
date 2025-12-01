@@ -46,28 +46,31 @@ String placeholder = "                ";
 int level = 1;
 int plevel = 0;
 auto const t_init = millis();
-unsigned long t_current;
+unsigned long t_current, t_past;
 unsigned long t_bake, t_kill, t_vent;
+bool tbA = false, tkA = false, tvA = false; // Timer [VarName] Active (gave up on finding a clever way to do it)
 
 	// CONSTANTS
 // Counts
 #define LEDCOUNT 	6
 
-// Time Lengths (milliseconds)
+// Time Lengths (milliseconds [SSe3])
 #define HEATUP		2e3
-#define ANIMINC 	25e1
+#define FANTIME		2e3
+#define MSGWAIT		1.5e3
+#define ANIMINC 	0.25e3
 #define COOKTIME 	60e3
 
 // Buttons
-// Imagine confirm green & cancel red
 #define CONFIRMPIN 	7
-#define CANCELPIN 	9
+#define CANCELPIN 	13
 
 // Appliances
 #define LEDPIN 		6
 #define MOTORPIN 	10
 #define GRIDPIN 	8
-#define FANPIN		13
+#define FANPIN		9		
+
 
 // Arrays
 const char intro[][16] = {\
@@ -196,45 +199,47 @@ void setFanPower(float i) {
 // Keyframe functions
 bool requestNumPancakes(){
   	printMessage("Bake how much?");
- 	printMessage("", 1);
+ 	clearLine(1);
 	return true;
 }
 
 void introductionProtocol(){
   for (int i=0; (i<getArraySize(intro)); i++) {
-  	printMessage(intro[i]);
+  	printMessage(center(intro[i]));
     delay(ANIMINC);
   }
   
-  printMessage("By Jesuit HS", 1);
-  clearLine(0);
-  delay(1500);
-  printMessage("[Please wait]", 0);
+  printMessage(center("By Jesuit HS"), 1);
+  delay(MSGWAIT);
+  clearLine();
+  
+  printMessage(center("[Please wait]"), 0);
+  setFanPower(HIGH);
+  delay(FANTIME);
   
   digitalWrite(GRIDPIN, HIGH); // <--- This is turning on griddle
   
   // Wait for it to heat up (timing based on trial data)
   for (int i=0; (i<(HEATUP/ANIMINC)); i++) {
     int prxy = (i%getArraySize(heatingAnim)) + 1;
-  	printMessage(heatingAnim[prxy],1);
+  	printMessage(center(heatingAnim[prxy]),1);
     delay(ANIMINC);
   }
   
-  printMessage("[Complete]");
-  printMessage("", 1);
-  delay(1500);
+  printMessage(center("[Complete]"),1);
+  delay(MSGWAIT);
+  clearLine();
 }
 
-void update(){ 	
+void update(){
+  // LEFT OFF HERE
+  	tbA = (requesting && prevConfirmState && getConfirmState() && !baking) ? t_current : t_bake;
+  
   	// Set them for next time
   	t_bake = ((!requesting)&& baking) ? t_bake : 0.0L;
   	// t_vent = (IDK YET) ? t_vent : -1.0;
-  	t_terminated = (cancelMode) ? t_terminated : 0.0L;
-  
-  	t_bake = (requesting && prevConfirmState && getConfirmState() && !baking) ? t_init-millis() : t_bake;
-    // t_vent_init = (requesting && prevConfirmState && getConfirmState() && !baking) ? t_current : 0.0L;
-  	// t_terminated_init = (requesting && prevConfirmState && getConfirmState() && !baking) ? t_current : 0.0L;
-  	
+  	t_kill = (cancelMode) ? t_kill : 0.0L;  	
+	
   	// Button handler
   	baking = (requesting && prevConfirmState && getConfirmState() || baking) ? true : false;
   	if (requesting && prevConfirmState && getConfirmState() || baking){requesting=false;}
@@ -266,7 +271,10 @@ void update(){
   	Serial.print("| V: "); Serial.println(t_vent);
     Serial.print("| C: "); Serial.println(t_current);
 
-  	t_current = millis() - t_init; // Increment current time separately
+  	t_current = (millis() - t_init)/1000; // Increment current time separately
+	
+  
+  	t_past = t_current;
 }
 
 	// EXTRA INTERFACE CONSTANTS (for optimization, convenience & such)
@@ -313,9 +321,9 @@ void loop() {
   	// Choose # Pancakes Screen
   	if (level != plevel && !baking){
     	if (level<17){
-  			printMessage((level>1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg), 1);
+  			printMessage(center((level>1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg)), 1);
     	} else {
-    		printMessage(amt, 1);
+    		printMessage(center(amt), 1);
     	}
     	plevel = level;
   	}
