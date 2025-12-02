@@ -2,8 +2,10 @@
 #include <LiquidCrystal.h>
 
 /*
-IMPORTANT ELECTRICAL NOTE: CONCERNING HEATING ELEMENT
-/////////////////////////////////////////////////////
+ 	  ////////////////////////////////
+	 // CONCERNING HEATING ELEMENT //
+	////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////
 > TinkerCAD sim doesn't support AC in the way needed for the griddle
 > For the real product, replace MOSFET w/ a solid-state relay (SSR)
 > The DC power supply represents the AC mains
@@ -44,17 +46,17 @@ Griddle Details (1200 Watt)
 	/////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
 bool baking = false, prevbaking = false, requesting = false, cancelMode = false;
-bool prevConfirmState = HIGH, prevCancelState = LOW;
+bool confirmPressedPrev = HIGH, cancelPressedPrev = LOW;
 String lastPrintLCD1 = "";
 String lastPrintLCD2 = "";
 String placeholder = "                ";
 int level = 1;
 int plevel = 0;
 int dispensed = 0;
-auto const t_init = millis();
-unsigned long t_current;
+unsigned long t_current, t_init;
 unsigned long t_bake, t_kill;
 bool tbA = false, tkA = false; // Timer [VarName] Active (gave up on finding a clever way to do it)
+
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -74,7 +76,7 @@ bool tbA = false, tkA = false; // Timer [VarName] Active (gave up on finding a c
 
 // Buttons
 #define CONFIRMPIN 	7
-#define CANCELPIN 	13
+#define CANCELPIN 	2
 
 // Appliances
 #define LEDPIN 		6
@@ -107,7 +109,9 @@ const char heatingAnim[][16] = {\
 	"heating...",\
     "heating",\
 };
+
 ///////////////////////////////////////////////////////////////////////////////////////////
+
 
 
 
@@ -118,9 +122,10 @@ const char heatingAnim[][16] = {\
 // Initialize LCD: (RS, E, D4, D5, D6, D7)
 // Initialize LED Strip: (#LEDs, Pin, Color Mode + Signal)
 
-LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+LiquidCrystal lcd(12, 11, 5, 4, 3, 13);
 Adafruit_NeoPixel led(LEDCOUNT, LEDPIN, NEO_GRB + NEO_KHZ800);
 // ^ (Doesn't work in TinkerCAD sim)
+
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -150,6 +155,7 @@ const uint32_t ready[6] = {GREEN, GREEN, GREEN, GREEN, GREEN, GREEN};
 const uint32_t bakingA[6] = {WHITE, YELLOW, WHITE, WHITE, WHITE, WHITE};
 const uint32_t bakingB[6] = {WHITE, WHITE, WHITE, YELLOW, WHITE, WHITE};
 const uint32_t bakingC[6] = {WHITE, WHITE, WHITE, WHITE, WHITE, YELLOW};
+
 ////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -160,13 +166,10 @@ const uint32_t bakingC[6] = {WHITE, WHITE, WHITE, WHITE, WHITE, YELLOW};
 ////////////////////////////////////////////////////////////////////////////////////////////
 // Macros
 #define getArraySize(a) 	(sizeof(a) / sizeof((a)[0]))	
-#define getConfirmState() 	(!(digitalRead(CONFIRMPIN)))
-#define getCancelState() 	(!(digitalRead(CANCELPIN)))
-
 
 // Center/truncate string (16 characters)
 String center(String msg) {
-	return (msg.length()<=16) ? placeholder.substring(0,(16-msg.length())/2)+msg : msg.substring(0,17);
+	return (msg.length()<=16) ? placeholder.substring(0,(16-msg.length())/2)+msg : msg.substring(0,16);
 }
 
 
@@ -214,8 +217,6 @@ bool setColors(int a=OFF, int b=OFF, int c=OFF, int d=OFF, int e=OFF, int f=OFF)
 bool floodColors(const uint32_t z[6]) {
   if (getArraySize(z)<6) {return false;}
   setColors(z[0],z[1],z[2],z[3],z[4],z[5]);
-  
-  led.show();
   return true;
 }
 
@@ -241,6 +242,7 @@ void setFanPower(float i) {
 
 // Get the net difference between these two times in milliseconds
 unsigned long difftime(long t1, long t2) {return abs(t1-t2);}
+
 ////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -262,7 +264,7 @@ const String amt = "Auto-Mode";
 
 // Display a message on LCD asking for # pancakes (and set requesting to true simultaneously)
 bool requestNumPancakes(){
-  	printMessage(center("Bake how much?"));
+  	printMessage(center("Bake how many?"));
  	clearLine(1);
 	return true;
 }
@@ -280,7 +282,7 @@ void introductionProtocol(){
   clearLine();
   
   printMessage(center("[Please wait]"), 0);
-  setFanPower(HIGH);
+  setFanPower(1.0f);
   delay(FANTIME);
   
   digitalWrite(GRIDPIN, HIGH); // <--- This is turning on griddle
@@ -298,14 +300,17 @@ void introductionProtocol(){
 }
 
 
-// 
+// Dispense pancakes fxn
 void dispense() {
 
 }
 
 
-// 
+// Update per heartbeat fxn
 void update(){
+  	bool confirmPressed = (digitalRead(CONFIRMPIN) == LOW);
+	bool cancelPressed  = (digitalRead(CANCELPIN) == LOW);
+  
   	// Set them for next time
     tbA = baking;
   	tkA = cancelMode;
@@ -314,13 +319,16 @@ void update(){
   	t_kill = (tkA) ? t_kill : 0.0L;  	
 	
   	// Button handler
-  	baking = (requesting && prevConfirmState && getConfirmState() || baking) ? true : false;
+  	baking = ((confirmPressedPrev && !confirmPressed) || baking) ? true : false;
   
   	// Confirm button pressed
-  	if (requesting && prevConfirmState && getConfirmState()){requesting=false; t_bake = t_current;}
+  	if (requesting && confirmPressedPrev && !confirmPressed){
+      requesting = false;
+      t_bake = t_current;
+    }
   
   	// Cancel button pressed
-  	if (!getCancelState() && prevCancelState){
+  	if (!cancelPressed && cancelPressedPrev){
         baking = false;
       	requesting = !requesting;
       
@@ -335,23 +343,28 @@ void update(){
   	digitalWrite(LEDPIN, baking);
   	digitalWrite(MOTORPIN, baking);
   	
-	prevConfirmState = getConfirmState();
-  	prevCancelState = getCancelState();
+	confirmPressedPrev = confirmPressed;
+  	cancelPressedPrev = cancelPressed;
   	prevbaking = baking;
   	
   	// for debugging stuff
+  /*
   	Serial.println("======================");
   	Serial.println("Timers");
   	Serial.print("| B: "); Serial.println(t_bake);
     Serial.print("| T: "); Serial.println(t_kill);
-  	Serial.print("| V: "); Serial.println(t_vent);
-    Serial.print("| C: "); Serial.println(t_current);
+    Serial.print("| C: "); Serial.println(t_current); 
+    Serial.println("======================");
+  	Serial.println("Buttons");
+  	Serial.print("| Confirm: "); Serial.println(getConfirmState());
+  	Serial.print("| Prev-Confirm: "); Serial.println(prevConfirmState);
+  	Serial.print("| Baking: "); Serial.println(baking);*/
 
   	t_current = (millis() - t_init)/1000; // Increment current time separately
 }
 
 
-// 
+// The screen for asking for pancakes
 void requestScreen() {
   	// Map 0-1028 :: 1–17
   	level = map(analogRead(A0), 0, 1023, 1, 17);
@@ -368,10 +381,11 @@ void requestScreen() {
 }
 
 
-// 
+// The screen that shows when bancakes are paking
 void bakeScreen() {
   
 }
+
 ////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -397,27 +411,31 @@ void setup() {
   led.show();
   introductionProtocol();
   
+  // Timer
+  t_init = millis();
   Serial.begin(9600);
 }
 
 
 // Run repeatedly
 void loop() {  
-  if (cancelMode) {goto onCancel;}
-  if (!requesting && !baking){requesting = requestNumPancakes();}
-  if (requesting && !baking){requestScreen();}
-  if (baking) {bakeScreen();}
-  
-  update(); // Updates button states & time trackers
-  
-  onCancel: if (cancelMode){
+  if (cancelMode) {
   	if (!lastPrintLCD1.equals(eMsg1)){
   		printMessage(eMsg1);
     	printMessage(eMsg2,1);
   	}
     
-    update();
+    
+  } else {
+  	if (!requesting && !baking){requesting = requestNumPancakes(); Serial.println("a");}
+  	if (requesting && !baking){requestScreen(); Serial.println("b");}
+  	if (baking) {bakeScreen(); Serial.println("c");}
+    
+    
   }
+  
+  
+  update(); // Updates button states & time trackers
   
   delay(150);
 }
