@@ -39,9 +39,9 @@ Griddle Details (1200 Watt)
 
 
 
-  /////////////
- // GLOBALS //
-/////////////
+  	  /////////////
+ 	 // GLOBALS //
+	/////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
 bool baking = false, prevbaking = false, requesting = false, cancelMode = false;
 bool prevConfirmState = HIGH, prevCancelState = LOW;
@@ -111,9 +111,9 @@ const char heatingAnim[][16] = {\
 
 
 
-   ///////////////////////////
-  // INITIALIZE COMPONENTS //
- ///////////////////////////
+   	  ///////////////////////////
+  	 // INITIALIZE COMPONENTS //
+ 	///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Initialize LCD: (RS, E, D4, D5, D6, D7)
 // Initialize LED Strip: (#LEDs, Pin, Color Mode + Signal)
@@ -180,7 +180,7 @@ bool printMessage(String msg, int line = 0) {
   
   	if (line){
       lastPrintLCD2 = msg;
-    }else{
+    } else {
       lastPrintLCD1 = msg;
     }
   
@@ -239,7 +239,8 @@ void setFanPower(float i) {
 }
 
 
-unsigned long difftime(long t1, long t2) { return abs(t1-t2);}
+// Get the net difference between these two times in milliseconds
+unsigned long difftime(long t1, long t2) {return abs(t1-t2);}
 ////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -248,6 +249,17 @@ unsigned long difftime(long t1, long t2) { return abs(t1-t2);}
   	 // ABSTRACTION //
  	/////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////
+// EXTRA INTERFACE CONSTANTS (for optimization, convenience & such)
+const String bMsg = center("Baking");
+const String spsMsg = "Pancakes"; // The word Pancakes
+const String spMsg = spsMsg.substring(0,7); // The word Pancake
+const String cspsMsg = center(spsMsg); // So comprehensive 😍
+const String cspMsg = center(spMsg);
+const String eMsg1 = center("/   Action   \\"); // Cancel display line 1
+const String eMsg2 = center("\\ Terminated /"); // Cancel display line 2
+const String amt = "Auto-Mode";
+
+
 // Display a message on LCD asking for # pancakes (and set requesting to true simultaneously)
 bool requestNumPancakes(){
   	printMessage(center("Bake how much?"));
@@ -285,12 +297,14 @@ void introductionProtocol(){
   clearLine();
 }
 
+
+// 
 void dispense() {
 
 }
 
 
-
+// 
 void update(){
   	// Set them for next time
     tbA = baking;
@@ -335,11 +349,9 @@ void update(){
 
   	t_current = (millis() - t_init)/1000; // Increment current time separately
 }
-////////////////////////////////////////////////////////////////////////////////////////
 
 
-
-
+// 
 void requestScreen() {
   	// Map 0-1028 :: 1–17
   	level = map(analogRead(A0), 0, 1023, 1, 17);
@@ -355,26 +367,19 @@ void requestScreen() {
   	}
 }
 
+
+// 
 void bakeScreen() {
   
 }
+////////////////////////////////////////////////////////////////////////////////////////
 
 
 
-  /////////////
- // RUNTIME //
-/////////////
-
-// EXTRA INTERFACE CONSTANTS (for optimization, convenience & such)
-const String bMsg = center("Baking");
-const String spsMsg = "Pancakes"; // The word Pancakes
-const String spMsg = spsMsg.substring(0,7); // The word Pancake
-const String cspsMsg = center(spsMsg); // So comprehensive 😍
-const String cspMsg = center(spMsg);
-const String eMsg1 = center("/   Action   \\"); // Cancel display line 1
-const String eMsg2 = center("\\ Terminated /"); // Cancel display line 2
-const String amt = "Auto-Mode";
-
+  	  /////////////
+ 	 // RUNTIME //
+	/////////////
+////////////////////////////////////////////////////////////////////////////////////////
 // Run once on boot
 void setup() {
   // Pin Initialization
@@ -394,7 +399,6 @@ void setup() {
   
   Serial.begin(9600);
 }
-
 
 
 // Run repeatedly
