@@ -37,7 +37,12 @@ Griddle Details (1200 Watt)
   
 */
 
-//	INTIALIZATION GLOBALS
+
+
+  /////////////
+ // GLOBALS //
+/////////////
+///////////////////////////////////////////////////////////////////////////////////////////
 bool baking = false, prevbaking = false, requesting = false, cancelMode = false;
 bool prevConfirmState = HIGH, prevCancelState = LOW;
 String lastPrintLCD1 = "";
@@ -45,12 +50,18 @@ String lastPrintLCD2 = "";
 String placeholder = "                ";
 int level = 1;
 int plevel = 0;
+int dispensed = 0;
 auto const t_init = millis();
-unsigned long t_current, t_past;
-unsigned long t_bake, t_kill, t_vent;
-bool tbA = false, tkA = false, tvA = false; // Timer [VarName] Active (gave up on finding a clever way to do it)
+unsigned long t_current;
+unsigned long t_bake, t_kill;
+bool tbA = false, tkA = false; // Timer [VarName] Active (gave up on finding a clever way to do it)
+///////////////////////////////////////////////////////////////////////////////////////////
 
-	// CONSTANTS
+
+	  ///////////////
+	 // CONSTANTS //
+	///////////////
+///////////////////////////////////////////////////////////////////////////////////////////
 // Counts
 #define LEDCOUNT 	6
 
@@ -59,7 +70,7 @@ bool tbA = false, tkA = false, tvA = false; // Timer [VarName] Active (gave up o
 #define FANTIME		2e3
 #define MSGWAIT		1.5e3
 #define ANIMINC 	0.25e3
-#define COOKTIME 	60e3
+#define COOKTIME 	10e3L
 
 // Buttons
 #define CONFIRMPIN 	7
@@ -72,7 +83,7 @@ bool tbA = false, tkA = false, tvA = false; // Timer [VarName] Active (gave up o
 #define FANPIN		9		
 
 
-// Arrays
+// Fixed-Size Arrays
 const char intro[][16] = {\
 	"pancake maker",\
 	"pAncake maker",\
@@ -96,17 +107,28 @@ const char heatingAnim[][16] = {\
 	"heating...",\
     "heating",\
 };
+///////////////////////////////////////////////////////////////////////////////////////////
 
 
-	// INITIALIZE COMPONENTS
+
+   ///////////////////////////
+  // INITIALIZE COMPONENTS //
+ ///////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////
 // Initialize LCD: (RS, E, D4, D5, D6, D7)
-LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
-
 // Initialize LED Strip: (#LEDs, Pin, Color Mode + Signal)
+
+LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 Adafruit_NeoPixel led(LEDCOUNT, LEDPIN, NEO_GRB + NEO_KHZ800);
 // ^ (Doesn't work in TinkerCAD sim)
+///////////////////////////////////////////////////////////////////////////////////////////
 
-	// LIBRARY-SPECIFIC CONSTANTS
+
+
+	  ////////////////////////////////
+	 // LIBRARY-SPECIFIC CONSTANTS //
+	////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////
 // Colors
 #define WHITE led.Color(255, 255, 255)
 #define RED led.Color(255, 0, 0)
@@ -128,17 +150,27 @@ const uint32_t ready[6] = {GREEN, GREEN, GREEN, GREEN, GREEN, GREEN};
 const uint32_t bakingA[6] = {WHITE, YELLOW, WHITE, WHITE, WHITE, WHITE};
 const uint32_t bakingB[6] = {WHITE, WHITE, WHITE, YELLOW, WHITE, WHITE};
 const uint32_t bakingC[6] = {WHITE, WHITE, WHITE, WHITE, WHITE, YELLOW};
+////////////////////////////////////////////////////////////////////////////////////////
 
-	// FUNCTIONS
-// Little useful functions
+
+
+   	  /////////////////
+  	 /// FUNCTIONS ///
+ 	/////////////////
+////////////////////////////////////////////////////////////////////////////////////////////
+// Macros
 #define getArraySize(a) 	(sizeof(a) / sizeof((a)[0]))	
 #define getConfirmState() 	(!(digitalRead(CONFIRMPIN)))
 #define getCancelState() 	(!(digitalRead(CANCELPIN)))
 
+
+// Center/truncate string (16 characters)
 String center(String msg) {
 	return (msg.length()<=16) ? placeholder.substring(0,(16-msg.length())/2)+msg : msg.substring(0,17);
 }
 
+
+// Display string on LCD
 bool printMessage(String msg, int line = 0) {
   	line = constrain(line, 0, 1);
   	lcd.setCursor(0, line);
@@ -155,6 +187,8 @@ bool printMessage(String msg, int line = 0) {
   	return true;
 }
 
+
+// Clear LCD line or entire screen if no params
 bool clearLine(int lvl=-1){
   if (lvl<0){lcd.clear(); return true;}
   lvl = constrain(lvl, 0, 1);
@@ -162,6 +196,8 @@ bool clearLine(int lvl=-1){
   return true;
 }
 
+
+// Set LED strip colors manually
 bool setColors(int a=OFF, int b=OFF, int c=OFF, int d=OFF, int e=OFF, int f=OFF) {
 	led.setPixelColor(0, a);
 	led.setPixelColor(1, b);
@@ -173,6 +209,8 @@ bool setColors(int a=OFF, int b=OFF, int c=OFF, int d=OFF, int e=OFF, int f=OFF)
   return true;
 }
 
+
+// Set LED strip colors using a preset
 bool floodColors(const uint32_t z[6]) {
   if (getArraySize(z)<6) {return false;}
   setColors(z[0],z[1],z[2],z[3],z[4],z[5]);
@@ -181,6 +219,8 @@ bool floodColors(const uint32_t z[6]) {
   return true;
 }
 
+
+// Disable LED strip lights efficiently 
 bool disableLED() {
 	led.setPixelColor(0, OFF);
 	led.setPixelColor(1, OFF);
@@ -192,17 +232,31 @@ bool disableLED() {
   return true;
 }
 
+
+// Set fan motor power simply (WIRED WRONG)
 void setFanPower(float i) {
 	analogWrite(FANPIN, 255*constrain(i,0,1)); // automatically becomes integer
 }
 
-// Keyframe functions
+
+unsigned long difftime(long t1, long t2) { return abs(t1-t2);}
+////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+   	  /////////////////
+  	 // ABSTRACTION //
+ 	/////////////////
+////////////////////////////////////////////////////////////////////////////////////////////
+// Display a message on LCD asking for # pancakes (and set requesting to true simultaneously)
 bool requestNumPancakes(){
-  	printMessage("Bake how much?");
+  	printMessage(center("Bake how much?"));
  	clearLine(1);
 	return true;
 }
 
+
+// The entire warm-up process for the machine w/ animations
 void introductionProtocol(){
   for (int i=0; (i<getArraySize(intro)); i++) {
   	printMessage(center(intro[i]));
@@ -231,20 +285,27 @@ void introductionProtocol(){
   clearLine();
 }
 
+void dispense() {
+
+}
+
+
+
 void update(){
-  // LEFT OFF HERE
-  	tbA = (requesting && prevConfirmState && getConfirmState() && !baking) ? t_current : t_bake;
-  
   	// Set them for next time
-  	t_bake = ((!requesting)&& baking) ? t_bake : 0.0L;
-  	// t_vent = (IDK YET) ? t_vent : -1.0;
-  	t_kill = (cancelMode) ? t_kill : 0.0L;  	
+    tbA = baking;
+  	tkA = cancelMode;
+  
+  	t_bake = (tbA) ? t_bake : 0.0L;
+  	t_kill = (tkA) ? t_kill : 0.0L;  	
 	
   	// Button handler
   	baking = (requesting && prevConfirmState && getConfirmState() || baking) ? true : false;
-  	if (requesting && prevConfirmState && getConfirmState() || baking){requesting=false;}
-  	
-  	// Handle cancel button cases (on released)
+  
+  	// Confirm button pressed
+  	if (requesting && prevConfirmState && getConfirmState()){requesting=false; t_bake = t_current;}
+  
+  	// Cancel button pressed
   	if (!getCancelState() && prevCancelState){
         baking = false;
       	requesting = !requesting;
@@ -253,6 +314,7 @@ void update(){
       	cancelMode = true;
       
       	Serial.println("CANCELLED");
+      	t_kill = t_current;
  	 }
   
   	// Baking System
@@ -272,12 +334,38 @@ void update(){
     Serial.print("| C: "); Serial.println(t_current);
 
   	t_current = (millis() - t_init)/1000; // Increment current time separately
-	
-  
-  	t_past = t_current;
+}
+////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+void requestScreen() {
+  	// Map 0-1028 :: 1–17
+  	level = map(analogRead(A0), 0, 1023, 1, 17);
+    
+  	// Choose # Pancakes Screen
+  	if (level != plevel && !baking){
+    	if (level<17){
+  			printMessage(center((level>1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg)), 1);
+    	} else {
+    		printMessage(center(amt), 1);
+    	}
+    	plevel = level;
+  	}
 }
 
-	// EXTRA INTERFACE CONSTANTS (for optimization, convenience & such)
+void bakeScreen() {
+  
+}
+
+
+
+  /////////////
+ // RUNTIME //
+/////////////
+
+// EXTRA INTERFACE CONSTANTS (for optimization, convenience & such)
 const String bMsg = center("Baking");
 const String spsMsg = "Pancakes"; // The word Pancakes
 const String spMsg = spsMsg.substring(0,7); // The word Pancake
@@ -287,7 +375,6 @@ const String eMsg1 = center("/   Action   \\"); // Cancel display line 1
 const String eMsg2 = center("\\ Terminated /"); // Cancel display line 2
 const String amt = "Auto-Mode";
 
-	// RUNTIME 
 // Run once on boot
 void setup() {
   // Pin Initialization
@@ -305,46 +392,17 @@ void setup() {
   led.show();
   introductionProtocol();
   
-  // Debugging Purposes (no debugger in sim)
   Serial.begin(9600);
 }
 
+
+
 // Run repeatedly
-void loop() {
+void loop() {  
   if (cancelMode) {goto onCancel;}
-  
   if (!requesting && !baking){requesting = requestNumPancakes();}
-  if (requesting && !baking){
-  	// Map 0-1028 :: 1–17
-  	level = map(analogRead(A0), 0, 1023, 1, 17);
-    
-  	// Choose # Pancakes Screen
-  	if (level != plevel && !baking){
-    	if (level<17){
-  			printMessage(center((level>1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg)), 1);
-    	} else {
-    		printMessage(center(amt), 1);
-    	}
-    	plevel = level;
-  	}
-  }
-  
-  if (!lastPrintLCD1.equals(bMsg) && baking) {
-    t_bake = 0.0L;
-    printMessage(bMsg);
-    floodColors(warning); // Figure out color scene
-  } else if (baking) {
-    
-    // Time display for debugging
-    // printMessage(center("["+String(float(TIMEVARHERE/10)/100.0))+"]", 1);
-    
-    // Start baking here (dispensing)
-    // Figure out how to detect when we're out of batter too
-    auto temporaryPrint = (level<17) ? center(((level>1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg))) : spsMsg;
-    if (!lastPrintLCD2.equals(temporaryPrint)) {
-    	printMessage(temporaryPrint,1);
-    }
-  }
+  if (requesting && !baking){requestScreen();}
+  if (baking) {bakeScreen();}
   
   update(); // Updates button states & time trackers
   
@@ -352,8 +410,6 @@ void loop() {
   	if (!lastPrintLCD1.equals(eMsg1)){
   		printMessage(eMsg1);
     	printMessage(eMsg2,1);
-      	t_bake = 0.0L;
-      	t_kill = t_init-millis();
   	}
     
     update();
