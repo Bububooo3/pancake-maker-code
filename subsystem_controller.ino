@@ -46,7 +46,7 @@ Griddle Details (1200 Watt)
 	/////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
 bool baking = false, prevbaking = false, requesting = false, cancelMode = false;
-bool confirmPressedPrev = HIGH, cancelPressedPrev = LOW;
+bool confirmPressedPrev = LOW, cancelPressedPrev = LOW;
 String lastPrintLCD1 = "";
 String lastPrintLCD2 = "";
 String placeholder = "                ";
@@ -72,7 +72,7 @@ bool tbA = false, tkA = false; // Timer [VarName] Active (gave up on finding a c
 #define FANTIME		2e3
 #define MSGWAIT		1.5e3
 #define ANIMINC 	0.25e3
-#define COOKTIME 	10e3L
+#define COOKTIME 	10
 
 // Buttons
 #define CONFIRMPIN 	7
@@ -322,13 +322,14 @@ void update(){
   	baking = ((confirmPressedPrev && !confirmPressed) || baking) ? true : false;
   
   	// Confirm button pressed
-  	if (requesting && confirmPressedPrev && !confirmPressed){
+  	if (requesting && !confirmPressedPrev && confirmPressed){
       requesting = false;
       t_bake = t_current;
+      clearline();
     }
   
   	// Cancel button pressed
-  	if (!cancelPressed && cancelPressedPrev){
+  	if (cancelPressed && !cancelPressedPrev){
         baking = false;
       	requesting = !requesting;
       
@@ -356,9 +357,10 @@ void update(){
     Serial.print("| C: "); Serial.println(t_current); 
     Serial.println("======================");
   	Serial.println("Buttons");
-  	Serial.print("| Confirm: "); Serial.println(getConfirmState());
-  	Serial.print("| Prev-Confirm: "); Serial.println(prevConfirmState);
-  	Serial.print("| Baking: "); Serial.println(baking);*/
+  	Serial.print("| Confirm: "); Serial.println(confirmPressed);
+  	Serial.print("| Prev-Confirm: "); Serial.println(confirmPressedPrev);
+  	Serial.print("| Baking: "); Serial.println(baking);
+  	Serial.print("| Requesting: "); Serial.println(requesting);*/
 
   	t_current = (millis() - t_init)/1000; // Increment current time separately
 }
@@ -383,7 +385,24 @@ void requestScreen() {
 
 // The screen that shows when bancakes are paking
 void bakeScreen() {
-  
+  if (!lastPrintLCD1.equals(bMsg) && baking) {
+    printMessage(bMsg);
+  } else if (baking) {
+    
+    if (difftime(t_bake, t_current)>COOKTIME) {
+    	dispense();
+    }
+    
+    // Time display for debugging
+    // printMessage(center("["+String(float(TIMEVARHERE/10)/100.0))+"]", 1);
+    
+    // Start baking here (dispensing)
+    // Figure out how to detect when we're out of batter too
+    auto temporaryPrint = (level<17) ? center(((level>1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg))) : spsMsg;
+    if (!lastPrintLCD2.equals(temporaryPrint)) {
+    	printMessage(temporaryPrint,1);
+    }
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
