@@ -70,6 +70,7 @@ bool tbA = false, tkA = false; // Timer [VarName] Active (gave up on finding a c
 // Time Lengths (milliseconds [SSe3])
 #define HEATUP		2e3
 #define FANTIME		2e3
+#define KILLTIMEOUT 60
 #define MSGWAIT		1.5e3
 #define ANIMINC 	0.25e3
 #define COOKTIME 	10
@@ -310,7 +311,7 @@ void dispense() {
 void update(){
   	bool confirmPressed = (digitalRead(CONFIRMPIN) == LOW);
 	bool cancelPressed  = (digitalRead(CANCELPIN) == LOW);
-  
+
   	// Set them for next time
     tbA = baking;
   	tkA = cancelMode;
@@ -324,8 +325,9 @@ void update(){
   	// Confirm button pressed
   	if (requesting && !confirmPressedPrev && confirmPressed){
       requesting = false;
+      baking = true;
       t_bake = t_current;
-      clearline();
+      clearLine();
     }
   
   	// Cancel button pressed
@@ -349,12 +351,12 @@ void update(){
   	prevbaking = baking;
   	
   	// for debugging stuff
-  /*
+ 
   	Serial.println("======================");
   	Serial.println("Timers");
   	Serial.print("| B: "); Serial.println(t_bake);
     Serial.print("| T: "); Serial.println(t_kill);
-    Serial.print("| C: "); Serial.println(t_current); 
+    Serial.print("| C: "); Serial.println(t_current);  /*
     Serial.println("======================");
   	Serial.println("Buttons");
   	Serial.print("| Confirm: "); Serial.println(confirmPressed);
@@ -368,6 +370,8 @@ void update(){
 
 // The screen for asking for pancakes
 void requestScreen() {
+  	dispensed = 0;
+  
   	// Map 0-1028 :: 1–17
   	level = map(analogRead(A0), 0, 1023, 1, 17);
     
@@ -387,6 +391,8 @@ void requestScreen() {
 void bakeScreen() {
   if (!lastPrintLCD1.equals(bMsg) && baking) {
     printMessage(bMsg);
+    printMessage((level<17) ? center(((level>1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg))) : spsMsg,1);
+    
   } else if (baking) {
     
     if (difftime(t_bake, t_current)>COOKTIME) {
@@ -446,9 +452,9 @@ void loop() {
     
     
   } else {
-  	if (!requesting && !baking){requesting = requestNumPancakes(); Serial.println("a");}
-  	if (requesting && !baking){requestScreen(); Serial.println("b");}
-  	if (baking) {bakeScreen(); Serial.println("c");}
+  	if (!requesting && !baking){requesting = requestNumPancakes();}
+  	if (requesting && !baking){requestScreen();}
+  	if (baking){bakeScreen();}
     
     
   }
