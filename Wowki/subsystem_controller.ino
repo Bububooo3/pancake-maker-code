@@ -3,32 +3,32 @@
 #include <AccelStepper.h>
 
 /*
-PINS
+  PINS
 
-LCD <Resistor>:
+  LCD <Resistor>:
 	VSS 	→ 	GND
 	VDD		→ 	5V
 	V0		→ 	GND
-	
+
 	RS		→		12
-	E			→		11
+	E		→		11
 
 	D4		→		5
 	D5		→		4
 	D6		→		3
 	D7		→		13
 
-	A			→		<220 Ω>		→		5V
-	K			→		GND
+	A		→		<220 Ω>		→		5V
+	K		→		GND
 
 
-Knob Potentiometer:
+  Knob Potentiometer:
 	GND		→		GND
 	SIG		→		A0
 	VCC		→		5V
 
 
-Conveyor Driver <Conveyor Stepper Motor Pin>:
+  Conveyor Driver <Conveyor Stepper Motor Pin>:
 	EN		→		24
 	STEP	→		22
 	DIR		→		26
@@ -44,7 +44,7 @@ Conveyor Driver <Conveyor Stepper Motor Pin>:
 	GND.1	→		GND
 
 
-Cooling Driver <Cooling Stepper Motor Pin>:
+  Cooling Driver <Cooling Stepper Motor Pin>:
 	EN		→		27
 	STEP	→		25
 	DIR		→		23
@@ -59,7 +59,7 @@ Cooling Driver <Cooling Stepper Motor Pin>:
 	GND.1	→		GND
 
 
-Dispensing Driver <Dispensing Stepper Motor Pin>:
+  Dispensing Driver <Dispensing Stepper Motor Pin>:
 	EN		→		33
 	STEP	→		35
 	DIR		→		37
@@ -74,12 +74,12 @@ Dispensing Driver <Dispensing Stepper Motor Pin>:
 	GND.1	→		GND
 
 
-Confirm Push Button <Resistor>:
+  Confirm Push Button <Resistor>:
 	1:1 L	→		7
 	1:2 R →		<1 KΩ>	→		GND
 
 
-Cancel Push Button <Resistor>:
+  Cancel Push Button <Resistor>:
 	1:1 L	→		2
 	1:2 R →		<1 KΩ>	→		GND
 */
@@ -88,21 +88,21 @@ Cancel Push Button <Resistor>:
  	  ////////////////////////////////
 	 // CONCERNING HEATING ELEMENT //
 	////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////
-> TinkerCAD sim doesn't support AC in the way needed for the griddle
-> For the real product, replace MOSFET w/ a solid-state relay (SSR)
-> The DC power supply represents the AC mains
-> Use SSR rated >=15A @ 120V AC
-> Ask mentor/electrician if unsure
+  ///////////////////////////////////////////////////////////////////////////////////////////
+  > TinkerCAD sim doesn't support AC in the way needed for the griddle
+  > For the real product, replace MOSFET w/ a solid-state relay (SSR)
+  > The DC power supply represents the AC mains
+  > Use SSR rated >=15A @ 120V AC
+  > Ask mentor/electrician if unsure
 
-/////////////////////////////////////////////////////
-Reference Link
-> https://shorturl.fm/pwcKO
+  /////////////////////////////////////////////////////
+  Reference Link
+  > https://shorturl.fm/pwcKO
 
-/////////////////////////////////////////////////////
-Step-by-step Replacement Process:
-12V DC Power Suppy || 120V AC Outlet
-MOSFET			   ||  Solid-state relay
+  /////////////////////////////////////////////////////
+  Step-by-step Replacement Process:
+  12V DC Power Suppy || 120V AC Outlet
+  MOSFET			   ||  Solid-state relay
   - Cut only hot wire of extension cord
   - On the SSR, connect one end to COM & other to NO
   - Griddle turns on when relay is on & off when relay is off
@@ -111,24 +111,24 @@ MOSFET			   ||  Solid-state relay
   	^ (Not a necessity)
     ^ (Using rate of change, current T, target T, & time passed)
 
-/////////////////////////////////////////////////////
-Griddle Details (1200 Watt)
-> 2 prongs/wires (non-grounded)
+  /////////////////////////////////////////////////////
+  Griddle Details (1200 Watt)
+  > 2 prongs/wires (non-grounded)
   - Narrow blade: Hot(live) --> often black
   - Wide blade: Neutral --> often white
-> Hot wire carries 120V AC
+  > Hot wire carries 120V AC
   - Use an extension cord. Don't cut griddle cord directly.
   - Cut cord jacket carefully & strip hot wire after cutting it.
-  
+
 */
 
 
 
-  	/////////////
- 	 // GLOBALS //
-	/////////////
+/////////////
+// GLOBALS //
+/////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
-bool baking = false, prevbaking = false, requesting = false, cancelMode = false;
+bool baking = false, requesting = false, cancelMode = false;
 bool confirmPressedPrev = LOW, cancelPressedPrev = LOW;
 String lastPrintLCD1 = "";
 String lastPrintLCD2 = "";
@@ -143,63 +143,72 @@ bool tbA = false, tkA = false; // Timer [VarFirstChar] Active (gave up on findin
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 
-	  ///////////////
-	 // CONSTANTS //
-	///////////////
+///////////////
+// CONSTANTS //
+///////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Counts
-#define LEDCOUNT 	6
+#define LEDCOUNT 		6
 
-// Time Lengths (milliseconds [SSe3])
-#define HEATUP		2e3
-#define FANTIME		2e3
-#define KILLTIMEOUT 60
-#define MSGWAIT		1.5e3
-#define ANIMINC 	0.25e3
-#define COOKTIME 	10
+// Time Lengths (milliseconds)
+#define HEATUP					2e3
+#define FANTIME					2e3
+#define KILLTIMEOUT 		60
+#define MSGWAIT					1.5e3
+#define ANIMINC 				0.25e3
+#define COOKTIME 				10
+
+// Step pulse rate (steps/second)
+#define	MAXSTEP					800.0
+#define	CONVEYORSTEP		800.0
+
+// Step positions (Usually 1.8°/step, 200 steps/revolution)	← <Research more based on specific motor>
+#define DISPENSEROPEN		0
+#define DISPENSERCLOSE	0
 
 // Buttons
-#define CONFIRMPIN 	7
-#define CANCELPIN 	2
+#define CONFIRMPIN 			7
+#define CANCELPIN 			2
 
 // Appliances
-#define LEDPIN 		6
-#define GRIDPIN 	8
+#define LEDPIN 					6
+#define GRIDPIN 				8
+
 
 
 // Fixed-Size Arrays
 const char intro[][16] = {\
-	"pancake maker",\
-	"pAncake maker",\
-	"paNcake maker",\
-	"panCake maker",\
-	"pancAke maker",\
-	"pancaKe maker",\
-	"pancakE maker",\
-	"pancake Maker",\
-	"pancake mAker",\
-	"pancake maKer",\
-	"pancake makEr",\
-	"pancake makeR",\
-    " ",\
-};
+                          "pancake maker", \
+                          "pAncake maker", \
+                          "paNcake maker", \
+                          "panCake maker", \
+                          "pancAke maker", \
+                          "pancaKe maker", \
+                          "pancakE maker", \
+                          "pancake Maker", \
+                          "pancake mAker", \
+                          "pancake maKer", \
+                          "pancake makEr", \
+                          "pancake makeR", \
+                          " ", \
+                         };
 
 const char heatingAnim[][16] = {\
-	"heating",\
-	"heating.",\
-	"heating..",\
-	"heating...",\
-    "heating",\
-};
+                                "heating", \
+                                "heating.", \
+                                "heating..", \
+                                "heating...", \
+                                "heating", \
+                               };
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 
 
 
-   	  ///////////////////////////
-  	 // INITIALIZE COMPONENTS //
- 	///////////////////////////
+///////////////////////////
+// INITIALIZE COMPONENTS //
+///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Initialize LCD: (RS, E, D4, D5, D6, D7)
 // Initialize LED Strip: (#LEDs, Pin, Color Mode + Signal)
@@ -215,9 +224,9 @@ AccelStepper dispenser(AccelStepper::DRIVER, 35, 37);
 
 
 
-	  ////////////////////////////////
-	 // LIBRARY-SPECIFIC CONSTANTS //
-	////////////////////////////////
+////////////////////////////////
+// LIBRARY-SPECIFIC CONSTANTS //
+////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Colors
 #define WHITE led.Color(255, 255, 255)
@@ -245,40 +254,43 @@ const uint32_t bakingC[6] = {WHITE, WHITE, WHITE, WHITE, WHITE, YELLOW};
 
 
 
-   	  /////////////////
-  	 /// FUNCTIONS ///
- 	  /////////////////
+/////////////////
+/// FUNCTIONS ///
+/////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////
 // Macros
-#define getArraySize(a) 	(sizeof(a) / sizeof((a)[0]))	
+#define getArraySize(a) 	(sizeof(a) / sizeof((a)[0]))
 
 // Center/truncate string (16 characters)
 String center(String msg) {
-	return (msg.length()<=16) ? placeholder.substring(0,(16-msg.length())/2)+msg : msg.substring(0,16);
+  return (msg.length() <= 16) ? placeholder.substring(0, (16 - msg.length()) / 2) + msg : msg.substring(0, 16);
 }
 
 
 // Display string on LCD
 bool printMessage(String msg, int line = 0) {
-  	line = constrain(line, 0, 1);
-  	lcd.setCursor(0, line);
-	lcd.print(placeholder);
-	lcd.setCursor(0, line);
-	lcd.print(msg);
-  
-  	if (line){
-      lastPrintLCD2 = msg;
-    } else {
-      lastPrintLCD1 = msg;
-    }
-  
-  	return true;
+  line = constrain(line, 0, 1);
+  lcd.setCursor(0, line);
+  lcd.print(placeholder);
+  lcd.setCursor(0, line);
+  lcd.print(msg);
+
+  if (line) {
+    lastPrintLCD2 = msg;
+  } else {
+    lastPrintLCD1 = msg;
+  }
+
+  return true;
 }
 
 
 // Clear LCD line or entire screen if no params
-bool clearLine(int lvl=-1){
-  if (lvl<0){lcd.clear(); return true;}
+bool clearLine(int lvl = -1) {
+  if (lvl < 0) {
+    lcd.clear();
+    return true;
+  }
   lvl = constrain(lvl, 0, 1);
   printMessage(placeholder, lvl);
   return true;
@@ -286,60 +298,64 @@ bool clearLine(int lvl=-1){
 
 
 // Set LED strip colors manually
-bool setColors(int a=OFF, int b=OFF, int c=OFF, int d=OFF, int e=OFF, int f=OFF) {
-	led.setPixelColor(0, a);
-	led.setPixelColor(1, b);
- 	led.setPixelColor(2, c);
- 	led.setPixelColor(3, d);
- 	led.setPixelColor(4, e);
- 	led.setPixelColor(5, f);
-  	led.show();
+bool setColors(int a = OFF, int b = OFF, int c = OFF, int d = OFF, int e = OFF, int f = OFF) {
+  led.setPixelColor(0, a);
+  led.setPixelColor(1, b);
+  led.setPixelColor(2, c);
+  led.setPixelColor(3, d);
+  led.setPixelColor(4, e);
+  led.setPixelColor(5, f);
+  led.show();
   return true;
 }
 
 
 // Set LED strip colors using a preset
 bool floodColors(const uint32_t z[6]) {
-  if (getArraySize(z)<6) {return false;}
-  setColors(z[0],z[1],z[2],z[3],z[4],z[5]);
+  if (getArraySize(z) < 6) {
+    return false;
+  }
+  setColors(z[0], z[1], z[2], z[3], z[4], z[5]);
   return true;
 }
 
 
-// Disable LED strip lights efficiently 
+// Disable LED strip lights efficiently
 bool disableLED() {
-	led.setPixelColor(0, OFF);
-	led.setPixelColor(1, OFF);
- 	led.setPixelColor(2, OFF);
- 	led.setPixelColor(3, OFF);
- 	led.setPixelColor(4, OFF);
- 	led.setPixelColor(5, OFF);
-  	led.show();
+  led.setPixelColor(0, OFF);
+  led.setPixelColor(1, OFF);
+  led.setPixelColor(2, OFF);
+  led.setPixelColor(3, OFF);
+  led.setPixelColor(4, OFF);
+  led.setPixelColor(5, OFF);
+  led.show();
   return true;
 }
 
 
-// Set fan motor power simply (WIRED WRONG)
+// Set fan motor pulse rate
 void setFanPower(float i) {
-	githgu
+  fan.setSpeed(MAXSTEP * constrain(i, 0, 1));
 }
 
 
 // Get the net difference between these two times in milliseconds
-unsigned long difftime(long t1, long t2) {return abs(t1-t2);}
+unsigned long difftime(long t1, long t2) {
+  return abs(t1 - t2);
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
 
 
-   	  /////////////////
-  	 // ABSTRACTION //
- 	  /////////////////
+/////////////////
+// ABSTRACTION //
+/////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////
 // EXTRA INTERFACE CONSTANTS (for optimization, convenience & such)
 const String bMsg = center("Baking");
 const String spsMsg = "Pancakes"; // The word Pancakes
-const String spMsg = spsMsg.substring(0,7); // The word Pancake
+const String spMsg = spsMsg.substring(0, 7); // The word Pancake
 const String cspsMsg = center(spsMsg); // So comprehensive 😍
 const String cspMsg = center(spMsg);
 const String eMsg1 = center("/   Action   \\"); // Cancel display line 1
@@ -348,38 +364,38 @@ const String amt = "Auto-Mode";
 
 
 // Display a message on LCD asking for # pancakes (and set requesting to true simultaneously)
-bool requestNumPancakes(){
-  	printMessage(center("Bake how many?"));
- 	clearLine(1);
-	return true;
+bool requestNumPancakes() {
+  printMessage(center("Bake how many?"));
+  clearLine(1);
+  return true;
 }
 
 
 // The entire warm-up process for the machine w/ animations
-void introductionProtocol(){
-  for (int i=0; (i<getArraySize(intro)); i++) {
-  	printMessage(center(intro[i]));
+void introductionProtocol() {
+  for (int i = 0; (i < getArraySize(intro)); i++) {
+    printMessage(center(intro[i]));
     delay(ANIMINC);
   }
-  
+
   printMessage(center("By Jesuit HS"), 1);
   delay(MSGWAIT);
   clearLine();
-  
+
   printMessage(center("[Please wait]"), 0);
   setFanPower(1.0f);
   delay(FANTIME);
-  
-  digitalWrite(GRIDPIN, HIGH); // <--- This is turning on griddle
-  
+
+  digitalWrite(GRIDPIN, HIGH); // <--- This is turning on griddle (interface w/ SSR)
+
   // Wait for it to heat up (timing based on trial data)
-  for (int i=0; (i<(HEATUP/ANIMINC)); i++) {
-    int prxy = (i%getArraySize(heatingAnim)) + 1;
-  	printMessage(center(heatingAnim[prxy]),1);
+  for (int i = 0; (i < (HEATUP / ANIMINC)); i++) {
+    int prxy = (i % getArraySize(heatingAnim)) + 1;
+    printMessage(center(heatingAnim[prxy]), 1);
     delay(ANIMINC);
   }
-  
-  printMessage(center("[Complete]"),1);
+
+  printMessage(center("[Complete]"), 1);
   delay(MSGWAIT);
   clearLine();
 }
@@ -391,83 +407,97 @@ void dispense() {
 }
 
 
-// Update per heartbeat fxn
-void update(){
-  	bool confirmPressed = (digitalRead(CONFIRMPIN) == LOW);
-	bool cancelPressed  = (digitalRead(CANCELPIN) == LOW);
+// Handle the confirm/cancel button logic
+void handleButtons() {
+  bool confirmPressed = (digitalRead(CONFIRMPIN) == LOW);
+  bool cancelPressed  = (digitalRead(CANCELPIN) == LOW);
 
-  	// Set them for next time
-    tbA = baking;
-  	tkA = cancelMode;
-  
-  	t_bake = (tbA) ? t_bake : 0.0L;
-  	t_kill = (tkA) ? t_kill : 0.0L;  	
-	
-  	// Button handler
-  	baking = ((confirmPressedPrev && !confirmPressed) || baking) ? true : false;
-  
-  	// Confirm button pressed
-  	if (requesting && !confirmPressedPrev && confirmPressed){
+  baking = ((confirmPressedPrev && !confirmPressed) || baking) ? true : false;
+
+  // Confirm button pressed
+  if (!baking && !confirmPressedPrev && confirmPressed) {
+    if (cancelMode) {
+      cancelMode = false;
+      requesting = true;
+      baking = false;
+      t_kill = 0;
+      clearLine();
+
+    } else if (requesting) {
       requesting = false;
       baking = true;
       t_bake = t_current;
       clearLine();
     }
-  
-  	// Cancel button pressed
-  	if (cancelPressed && !cancelPressedPrev){
-        baking = false;
-      	requesting = !requesting;
-      
-   		clearLine();
-      	cancelMode = true;
-      
-      	Serial.println("CANCELLED");
-      	t_kill = t_current;
- 	 }
-  
-  	// Baking System
-  	digitalWrite(LEDPIN, baking);
-  	digitalWrite(MOTORPIN, baking);
-  	
-	confirmPressedPrev = confirmPressed;
-  	cancelPressedPrev = cancelPressed;
-  	prevbaking = baking;
-  	
-  	// for debugging stuff
- 
-  	Serial.println("======================");
-  	Serial.println("Timers");
-  	Serial.print("| B: "); Serial.println(t_bake);
+  }
+
+  // Cancel button pressed
+  if (cancelPressed && !cancelPressedPrev) {
+    baking = false;
+    requesting = false;
+    cancelMode = true;
+    clearLine();
+    t_kill = t_current;
+  }
+
+  // Baking System
+  conveyor.setSpeed((baking) ? CONVEYORSTEP : 0);
+  fan.setSpeed((baking) ? MAXSTEP : 0);
+
+  // Store state
+  confirmPressedPrev = confirmPressed;
+  cancelPressedPrev = cancelPressed;
+}
+
+
+// Update per heartbeat fxn
+void update() {
+  // Set them for next time
+  tbA = baking;
+  tkA = cancelMode;
+
+  t_bake = (tbA) ? t_bake : 0.0L;
+  t_kill = (tkA) ? t_kill : 0.0L;
+
+  handleButtons();
+
+  /*
+  	"I'll just use a debugger," I said with joys...
+  	I was then shot 57 times
+
+    Serial.println("======================");
+    Serial.println("Timers");
+    Serial.print("| B: "); Serial.println(t_bake);
     Serial.print("| T: "); Serial.println(t_kill);
-    Serial.print("| C: "); Serial.println(t_current);  /*
+    Serial.print("| C: "); Serial.println(t_current);
     Serial.println("======================");
   	Serial.println("Buttons");
   	Serial.print("| Confirm: "); Serial.println(confirmPressed);
   	Serial.print("| Prev-Confirm: "); Serial.println(confirmPressedPrev);
   	Serial.print("| Baking: "); Serial.println(baking);
-  	Serial.print("| Requesting: "); Serial.println(requesting);*/
+  	Serial.print("| Requesting: "); Serial.println(requesting);
+  */
 
-  	t_current = (millis() - t_init)/1000; // Increment current time separately
+  t_current = (millis() - t_init) / 1000; // Increment current time separately
 }
 
 
 // The screen for asking for pancakes
 void requestScreen() {
-  	dispensed = 0;
-  
-  	// Map 0-1028 :: 1–17
-  	level = map(analogRead(A0), 0, 1023, 1, 17);
-    
-  	// Choose # Pancakes Screen
-  	if (level != plevel && !baking){
-    	if (level<17){
-  			printMessage(center((level>1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg)), 1);
-    	} else {
-    		printMessage(center(amt), 1);
-    	}
-    	plevel = level;
-  	}
+  dispensed = 0;
+
+  // Map 0-1028 :: 1–17
+  level = map(analogRead(A0), 0, 1023, 1, 17);
+
+  // Choose # Pancakes Screen
+  if (level != plevel && !baking) {
+    if (level < 17) {
+      printMessage(center((level > 1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg)), 1);
+    } else {
+      printMessage(center(amt), 1);
+    }
+    plevel = level;
+  }
 }
 
 
@@ -475,22 +505,17 @@ void requestScreen() {
 void bakeScreen() {
   if (!lastPrintLCD1.equals(bMsg) && baking) {
     printMessage(bMsg);
-    printMessage((level<17) ? center(((level>1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg))) : spsMsg,1);
-    
+    printMessage((level < 17) ? center(((level > 1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg))) : spsMsg, 1);
+
   } else if (baking) {
-    
-    if (difftime(t_bake, t_current)>COOKTIME) {
-    	dispense();
+
+    if (difftime(t_bake, t_current) > COOKTIME) {
+      dispense();
     }
-    
-    // Time display for debugging
-    // printMessage(center("["+String(float(TIMEVARHERE/10)/100.0))+"]", 1);
-    
-    // Start baking here (dispensing)
-    // Figure out how to detect when we're out of batter too
-    auto temporaryPrint = (level<17) ? center(((level>1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg))) : spsMsg;
+
+    auto temporaryPrint = (level < 17) ? center(((level > 1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg))) : spsMsg;
     if (!lastPrintLCD2.equals(temporaryPrint)) {
-    	printMessage(temporaryPrint,1);
+      printMessage(temporaryPrint, 1);
     }
   }
 }
@@ -499,27 +524,25 @@ void bakeScreen() {
 
 
 
-  	/////////////
- 	 // RUNTIME //
-	/////////////
+/////////////
+// RUNTIME //
+/////////////
 ////////////////////////////////////////////////////////////////////////////////////////
 // Run once on boot
 void setup() {
   // Pin Initialization
   pinMode(CONFIRMPIN, INPUT_PULLUP);
   pinMode(CANCELPIN, INPUT_PULLUP);
-  pinMode(FANPIN, OUTPUT);
   pinMode(LEDPIN, OUTPUT);
-  pinMode(MOTORPIN, OUTPUT);
-  
+
   // LCD
-  lcd.begin(16,2);
-  
+  lcd.begin(16, 2);
+
   // LED
   led.begin();
   led.show();
   introductionProtocol();
-  
+
   // Timer
   t_init = millis();
   Serial.begin(9600);
@@ -527,24 +550,30 @@ void setup() {
 
 
 // Run repeatedly
-void loop() {  
+void loop() {
   if (cancelMode) {
-  	if (!lastPrintLCD1.equals(eMsg1)){
-  		printMessage(eMsg1);
-    	printMessage(eMsg2,1);
-  	}
-    
-    
+    if (!lastPrintLCD1.equals(eMsg1)) {
+      printMessage(eMsg1);
+      printMessage(eMsg2, 1);
+    }
+
+
   } else {
-  	if (!requesting && !baking){requesting = requestNumPancakes();}
-  	if (requesting && !baking){requestScreen();}
-  	if (baking){bakeScreen();}
-    
-    
+    if (!requesting && !baking) {
+      requesting = requestNumPancakes();
+    }
+    if (requesting && !baking) {
+      requestScreen();
+    }
+    if (baking) {
+      bakeScreen();
+    }
+
+
   }
-  
-  
+
+
   update(); // Updates button states & time trackers
-  
+
   delay(150);
 }
