@@ -130,7 +130,7 @@
 ///////////////////////////////////////////////////////////////////////////////////////////
 bool baking = false, requesting = false, cancelMode = false;
 bool confirmPressedPrev = LOW, cancelPressedPrev = LOW;
-bool griddleEnabled = false, griddleReady = true, heatOnBoot = false;
+bool griddleEnabled = false, griddleReady = true, heatOnBoot = false, serviceMsg = false;
 String lastPrintLCD1 = "";
 String lastPrintLCD2 = "";
 String placeholder = "                ";
@@ -162,10 +162,16 @@ bool tbA = false, tkA = false; // Timer [VarFirstChar] Active (gave up on findin
 // Step pulse rate (steps/second)
 #define	MAXSTEP					800.0
 #define	CONVEYORSTEP		800.0
+#define DISPENSERSPEED	800.0
+#define DISPENSERACCEL	400.0
 
 // Step positions (Usually 1.8°/step, 200 steps/revolution)	← <Research more based on specific motor>
 #define DISPENSEROPEN		0
 #define DISPENSERCLOSE	0
+
+// Dispenser states
+#define OPENING					true
+#define CLOSING					false
 
 // Buttons
 #define CONFIRMPIN 			7
@@ -258,6 +264,9 @@ const uint32_t bakingA[6] = {WHITE, YELLOW, WHITE, WHITE, WHITE, WHITE};
 const uint32_t bakingB[6] = {WHITE, WHITE, WHITE, YELLOW, WHITE, WHITE};
 const uint32_t bakingC[6] = {WHITE, WHITE, WHITE, WHITE, WHITE, YELLOW};
 
+// Dispenser
+bool dispenseState = OPENING;
+
 ////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -277,6 +286,16 @@ String center(String msg) {
 
 // Display string on LCD
 bool printMessage(String msg, int line = 0) {
+  if (line) {
+    if (lastPrintLCD2 == msg) {
+      return false;
+    }
+  } else {
+    if (lastPrintLCD1 == msg) {
+      return false;
+    }
+  }
+
   line = constrain(line, 0, 1);
   lcd.setCursor(0, line);
   lcd.print(placeholder);
@@ -401,21 +420,20 @@ bool getGriddleEnabled() {
 // Update griddle per heartbeat w/o yielding program
 // Returns true if griddle is fully cooled or heated
 bool updateGriddle() {
-  unsigned long elapsed = t_current - t_griddle;
+  unsigned long elapsed = difftime(t_current, t_griddle);
 
   if (griddleEnabled) {
     // Heatup anim
-    int frame = ((elapsed / ANIMINC) % getArraySize(heatingAnim)) + 1;
+    int frame = (elapsed / ANIMINC) % getArraySize(heatingAnim);
     printMessage(center(heatingAnim[frame]), 1);
 
     if (!griddleReady && elapsed >= HEATUP) {
       griddleReady = true;
       return true;
     }
-
   } else {
     // Cooldown anim
-    int frame = ((elapsed / ANIMINC) % getArraySize(coolingAnim)) + 1;
+    int frame = (elapsed / ANIMINC) % getArraySize(coolingAnim);
     printMessage(center(coolingAnim[frame]), 1);
 
     if (!griddleReady && elapsed >= COOLDOWN) {
@@ -453,7 +471,16 @@ void introductionProtocol() {
 
 // Dispense pancakes fxn
 void dispense() {
-	dispenser.moveTo(DISPENSEROPEN); // Let batter out
+  if (dispenseState == OPENING) {
+    dispenser.moveTo(DISPENSEROPEN);
+    dispenser.run();
+    if (dispenser.distanceToGo() == 0) dispenseState = CLOSING;
+  } else {
+    dispenser.moveTo(DISPENSERCLOSE);
+    dispenser.run();
+    if (dispenser.distanceToGo() == 0) dispenseState = OPENING;
+  }
+
 }
 
 
@@ -461,8 +488,6 @@ void dispense() {
 void handleButtons() {
   bool confirmPressed = (digitalRead(CONFIRMPIN) == LOW);
   bool cancelPressed  = (digitalRead(CANCELPIN) == LOW);
-
-  baking = ((confirmPressedPrev && !confirmPressed) || baking) ? true : false;
 
   // Confirm button pressed
   if (!baking && !confirmPressedPrev && confirmPressed) {
@@ -476,7 +501,9 @@ void handleButtons() {
     } else if (requesting) {
       requesting = false;
       baking = true;
-			if (!heatOnBoot) {setGriddleEnabled(true);}
+      if (!heatOnBoot) {
+        setGriddleEnabled(true);
+      }
       t_bake = t_current;
       clearLine();
     }
@@ -485,7 +512,7 @@ void handleButtons() {
   // Cancel button pressed
   if (cancelPressed && !cancelPressedPrev) {
     baking = false;
-		setGriddleEnabled(false);
+    setGriddleEnabled(false);
     requesting = false;
     cancelMode = true;
     clearLine();
@@ -505,14 +532,13 @@ void updateMotors() {
   conveyor.runSpeed(); // continuous
   fan.runSpeed();			// continuous
   dispenser.run();	 // position-based
-
-  if (!(griddleReady) && updateGriddle()) {
-    // Griddle just became ready
-  }
+  serviceMsg = (!(griddleReady) && updateGriddle());
 }
 
 // Update per heartbeat fxn
 void heartbeat() {
+  t_current = millis() - t_init; // Increment current time separately
+
   // Set them for next time
   tbA = baking;
   tkA = cancelMode;
@@ -540,7 +566,6 @@ void heartbeat() {
   	Serial.print("| Requesting: "); Serial.println(requesting);
   */
 
-  t_current = millis() - t_init; // Increment current time separately
 }
 
 
@@ -574,10 +599,6 @@ void bakeScreen() {
       if (difftime(t_bake, t_current) > COOKTIME) {
         dispense();
       }
-    }	else {
-			if (lastPrintLCD1.indexOf("heating") == -1) {
-				printMessage(center("Heating..."));
-			}
     }
 
     auto temporaryPrint = (level < 17) ? center(((level > 1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg))) : spsMsg;
@@ -601,7 +622,7 @@ void setup() {
   pinMode(CONFIRMPIN, INPUT_PULLUP);
   pinMode(CANCELPIN, INPUT_PULLUP);
   pinMode(LEDPIN, OUTPUT);
-	pinMode(GRIDPIN, OUTPUT);
+  pinMode(GRIDPIN, OUTPUT);
 
   // LCD
   lcd.begin(16, 2);
@@ -614,6 +635,12 @@ void setup() {
   // Timer
   t_init = millis();
   Serial.begin(9600);
+
+  // Stepper Motors
+  conveyor.setMaxSpeed(CONVEYORSTEP);
+  fan.setMaxSpeed(MAXSTEP);
+  dispenser.setMaxSpeed(800);
+  dispenser.setAcceleration(400);
 }
 
 
@@ -624,7 +651,13 @@ void loop() {
       printMessage(eMsg1);
       printMessage(eMsg2, 1);
     }
-  } else {
+
+    if (difftime(t_current, t_kill) >= KILLTIMEOUT) {
+      cancelMode = false;
+      clearLine();
+    }
+
+  } else if (!serviceMsg) {
     if (!requesting && !baking) {
       requesting = requestNumPancakes();
     }
