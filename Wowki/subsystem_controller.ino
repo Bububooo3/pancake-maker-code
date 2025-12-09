@@ -130,6 +130,7 @@
 ///////////////////////////////////////////////////////////////////////////////////////////
 bool baking = false, requesting = false, cancelMode = false;
 bool confirmPressedPrev = LOW, cancelPressedPrev = LOW;
+bool griddleEnabled = false, griddleReady = true, heatOnBoot = false;
 String lastPrintLCD1 = "";
 String lastPrintLCD2 = "";
 String placeholder = "                ";
@@ -137,7 +138,7 @@ int level = 1;
 int plevel = 0;
 int dispensed = 0;
 unsigned long t_current, t_init;
-unsigned long t_bake, t_kill;
+unsigned long t_bake, t_kill, t_griddle;
 bool tbA = false, tkA = false; // Timer [VarFirstChar] Active (gave up on finding a clever way to do it)
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -152,11 +153,11 @@ bool tbA = false, tkA = false; // Timer [VarFirstChar] Active (gave up on findin
 
 // Time Lengths (milliseconds)
 #define HEATUP					2e3
-#define FANTIME					2e3
-#define KILLTIMEOUT 		60
+#define COOLDOWN				2e3
+#define KILLTIMEOUT 		60e3
 #define MSGWAIT					1.5e3
 #define ANIMINC 				0.25e3
-#define COOKTIME 				10
+#define COOKTIME 				10e3
 
 // Step pulse rate (steps/second)
 #define	MAXSTEP					800.0
@@ -201,6 +202,13 @@ const char heatingAnim[][16] = {\
                                 "heating", \
                                };
 
+const char coolingAnim[][16] = {\
+                                "cooling", \
+                                "cooling.", \
+                                "cooling..", \
+                                "cooling...", \
+                                "cooling", \
+                               };
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -371,6 +379,54 @@ bool requestNumPancakes() {
 }
 
 
+// Set whether the griddle should be heating up or cooling down or neither
+void setGriddleEnabled(bool enabled) {
+  if (griddleEnabled == enabled) {
+    return;
+  }
+
+  digitalWrite(GRIDPIN, enabled);
+  griddleEnabled = enabled;
+  griddleReady = false;
+  t_griddle = t_current;
+}
+
+
+// Just for simplicity
+bool getGriddleEnabled() {
+  return griddleEnabled;
+}
+
+
+// Update griddle per heartbeat w/o yielding program
+// Returns true if griddle is fully cooled or heated
+bool updateGriddle() {
+  unsigned long elapsed = t_current - t_griddle;
+
+  if (griddleEnabled) {
+    // Heatup anim
+    int frame = ((elapsed / ANIMINC) % getArraySize(heatingAnim)) + 1;
+    printMessage(center(heatingAnim[frame]), 1);
+
+    if (!griddleReady && elapsed >= HEATUP) {
+      griddleReady = true;
+      return true;
+    }
+
+  } else {
+    // Cooldown anim
+    int frame = ((elapsed / ANIMINC) % getArraySize(coolingAnim)) + 1;
+    printMessage(center(coolingAnim[frame]), 1);
+
+    if (!griddleReady && elapsed >= COOLDOWN) {
+      griddleReady = true;
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // The entire warm-up process for the machine w/ animations
 void introductionProtocol() {
   for (int i = 0; (i < getArraySize(intro)); i++) {
@@ -382,17 +438,11 @@ void introductionProtocol() {
   delay(MSGWAIT);
   clearLine();
 
-  printMessage(center("[Please wait]"), 0);
+
   setFanPower(1.0f);
-  delay(FANTIME);
 
-  digitalWrite(GRIDPIN, HIGH); // <--- This is turning on griddle (interface w/ SSR)
-
-  // Wait for it to heat up (timing based on trial data)
-  for (int i = 0; (i < (HEATUP / ANIMINC)); i++) {
-    int prxy = (i % getArraySize(heatingAnim)) + 1;
-    printMessage(center(heatingAnim[prxy]), 1);
-    delay(ANIMINC);
+  if (heatOnBoot) {
+    setGriddleEnabled(true);
   }
 
   printMessage(center("[Complete]"), 1);
@@ -403,7 +453,7 @@ void introductionProtocol() {
 
 // Dispense pancakes fxn
 void dispense() {
-
+	dispenser.moveTo(DISPENSEROPEN); // Let batter out
 }
 
 
@@ -426,6 +476,7 @@ void handleButtons() {
     } else if (requesting) {
       requesting = false;
       baking = true;
+			if (!heatOnBoot) {setGriddleEnabled(true);}
       t_bake = t_current;
       clearLine();
     }
@@ -434,6 +485,7 @@ void handleButtons() {
   // Cancel button pressed
   if (cancelPressed && !cancelPressedPrev) {
     baking = false;
+		setGriddleEnabled(false);
     requesting = false;
     cancelMode = true;
     clearLine();
@@ -449,9 +501,18 @@ void handleButtons() {
   cancelPressedPrev = cancelPressed;
 }
 
+void updateMotors() {
+  conveyor.runSpeed(); // continuous
+  fan.runSpeed();			// continuous
+  dispenser.run();	 // position-based
+
+  if (!(griddleReady) && updateGriddle()) {
+    // Griddle just became ready
+  }
+}
 
 // Update per heartbeat fxn
-void update() {
+void heartbeat() {
   // Set them for next time
   tbA = baking;
   tkA = cancelMode;
@@ -460,6 +521,7 @@ void update() {
   t_kill = (tkA) ? t_kill : 0.0L;
 
   handleButtons();
+  updateMotors();
 
   /*
   	"I'll just use a debugger," I said with joys...
@@ -478,7 +540,7 @@ void update() {
   	Serial.print("| Requesting: "); Serial.println(requesting);
   */
 
-  t_current = (millis() - t_init) / 1000; // Increment current time separately
+  t_current = millis() - t_init; // Increment current time separately
 }
 
 
@@ -508,9 +570,14 @@ void bakeScreen() {
     printMessage((level < 17) ? center(((level > 1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg))) : spsMsg, 1);
 
   } else if (baking) {
-
-    if (difftime(t_bake, t_current) > COOKTIME) {
-      dispense();
+    if (griddleReady) {
+      if (difftime(t_bake, t_current) > COOKTIME) {
+        dispense();
+      }
+    }	else {
+			if (lastPrintLCD1.indexOf("heating") == -1) {
+				printMessage(center("Heating..."));
+			}
     }
 
     auto temporaryPrint = (level < 17) ? center(((level > 1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg))) : spsMsg;
@@ -534,6 +601,7 @@ void setup() {
   pinMode(CONFIRMPIN, INPUT_PULLUP);
   pinMode(CANCELPIN, INPUT_PULLUP);
   pinMode(LEDPIN, OUTPUT);
+	pinMode(GRIDPIN, OUTPUT);
 
   // LCD
   lcd.begin(16, 2);
@@ -556,8 +624,6 @@ void loop() {
       printMessage(eMsg1);
       printMessage(eMsg2, 1);
     }
-
-
   } else {
     if (!requesting && !baking) {
       requesting = requestNumPancakes();
@@ -568,12 +634,10 @@ void loop() {
     if (baking) {
       bakeScreen();
     }
-
-
   }
 
 
-  update(); // Updates button states & time trackers
+  heartbeat(); // Updates button states & time trackers
 
-  delay(150);
+  // delay(150);
 }
