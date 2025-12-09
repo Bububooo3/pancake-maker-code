@@ -138,7 +138,7 @@ int level = 1;
 int plevel = 0;
 int dispensed = 0;
 unsigned long t_current, t_init;
-unsigned long t_bake, t_kill, t_griddle;
+unsigned long t_bake, t_kill, t_griddle, t_dispense;
 bool tbA = false, tkA = false; // Timer [VarFirstChar] Active (gave up on finding a clever way to do it)
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -265,7 +265,8 @@ const uint32_t bakingB[6] = {WHITE, WHITE, WHITE, YELLOW, WHITE, WHITE};
 const uint32_t bakingC[6] = {WHITE, WHITE, WHITE, WHITE, WHITE, YELLOW};
 
 // Dispenser
-bool dispenseState = OPENING;
+bool dispenseState = OPENING, dispensingActive = false;
+long dispenseTarget = DISPENSERCLOSE;
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
@@ -368,7 +369,7 @@ void setFanPower(float i) {
 
 // Get the net difference between these two times in milliseconds
 unsigned long difftime(long t1, long t2) {
-  return abs(t1 - t2);
+  return abs(t2 - t1);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -471,16 +472,20 @@ void introductionProtocol() {
 
 // Dispense pancakes fxn
 void dispense() {
-  if (dispenseState == OPENING) {
+  if (!dispensingActive) {
+    dispensingActive = true;
     dispenser.moveTo(DISPENSEROPEN);
-    dispenser.run();
-    if (dispenser.distanceToGo() == 0) dispenseState = CLOSING;
-  } else {
-    dispenser.moveTo(DISPENSERCLOSE);
-    dispenser.run();
-    if (dispenser.distanceToGo() == 0) dispenseState = OPENING;
   }
 
+  dispenser.run();
+
+  if (dispenser.distanceToGo() == 0 && dispenser.currentPosition() == DISPENSEROPEN) {
+    dispenser.moveTo(DISPENSERCLOSE);
+  }
+
+  if (dispenser.distanceToGo() == 0 && dispenser.currentPosition() == DISPENSERCLOSE) {
+    dispensingActive = false;
+  }
 }
 
 
@@ -504,7 +509,15 @@ void handleButtons() {
       if (!heatOnBoot) {
         setGriddleEnabled(true);
       }
+
       t_bake = t_current;
+      t_dispense = t_current;
+
+      dispensingActive = false;
+      dispenseState = OPENING;
+      dispenseTarget = DISPENSERCLOSE;
+      dispensed = 0;
+
       clearLine();
     }
   }
@@ -544,6 +557,7 @@ void heartbeat() {
   tkA = cancelMode;
 
   t_bake = (tbA) ? t_bake : 0.0L;
+  t_dispense = (tbA) ? t_dispense : 0.0L;
   t_kill = (tkA) ? t_kill : 0.0L;
 
   handleButtons();
@@ -596,8 +610,10 @@ void bakeScreen() {
 
   } else if (baking) {
     if (griddleReady) {
-      if (difftime(t_bake, t_current) > COOKTIME) {
+      if (difftime(t_dispense, t_current) >= COOKTIME && !dispensingActive) {
         dispense();
+        t_dispense = t_current;
+        dispense++;
       }
     }
 
