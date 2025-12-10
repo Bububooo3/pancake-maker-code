@@ -128,7 +128,7 @@
 // GLOBALS //
 /////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
-bool baking = false, requesting = false, cancelMode = false;
+bool baking = false, requesting = false, cancelMode = false, ready = false;
 bool confirmPressedPrev = LOW, cancelPressedPrev = LOW;
 bool griddleEnabled = false, griddleReady = true, heatOnBoot = false, serviceMsg = false;
 String lastPrintLCD1 = "";
@@ -137,7 +137,6 @@ String placeholder = "                ";
 int level = 1;
 int plevel = 0;
 int dispensed = 0;
-unsigned long t_current, t_init;
 unsigned long t_bake, t_kill, t_griddle, t_dispense;
 bool tbA = false, tkA = false; // Timer [VarFirstChar] Active (gave up on finding a clever way to do it)
 
@@ -259,10 +258,14 @@ AccelStepper dispenser(AccelStepper::DRIVER, 35, 37);
 // Presets
 const uint32_t warning[6] = {YELLOW, ORANGE, YELLOW, ORANGE, YELLOW, ORANGE};
 const uint32_t danger[6] = {RED, RED, RED, RED, RED, RED};
-const uint32_t ready[6] = {GREEN, GREEN, GREEN, GREEN, GREEN, GREEN};
+const uint32_t rqst[6] = {PURPLE, MAGENTA, PURPLE, MAGENTA, PURPLE, MAGENTA};
+const uint32_t dormant[6] = {BLUE, WHITE, BLUE, WHITE, BLUE, WHITE};
+const uint32_t off[6] = {OFF, OFF, OFF, OFF, OFF, OFF};
+const uint32_t valid[6] = {GREEN, GREEN, GREEN, GREEN, GREEN, GREEN};
 const uint32_t bakingA[6] = {WHITE, YELLOW, WHITE, WHITE, WHITE, WHITE};
 const uint32_t bakingB[6] = {WHITE, WHITE, WHITE, YELLOW, WHITE, WHITE};
 const uint32_t bakingC[6] = {WHITE, WHITE, WHITE, WHITE, WHITE, YELLOW};
+uint32_t prevLED[6] = {OFF, OFF, OFF, OFF, OFF, OFF};
 
 // Dispenser
 bool dispenseState = OPENING, dispensingActive = false;
@@ -325,6 +328,28 @@ bool clearLine(int lvl = -1) {
 }
 
 
+// Return whether the previous LED is the same as the current one
+bool getLEDChanged(uint32_t a[]) {
+  return (
+           prevLED[0] == a[0] &&
+           prevLED[1] == a[1] &&
+           prevLED[2] == a[2] &&
+           prevLED[3] == a[3] &&
+           prevLED[4] == a[4] &&
+           prevLED[5] == a[5]
+         );
+}
+
+void setLEDChanged(uint32_t a[])  {
+  prevLED[0] = a[0];
+  prevLED[1] = a[1];
+  prevLED[2] = a[2];
+  prevLED[3] = a[3];
+  prevLED[4] = a[4];
+  prevLED[5] = a[5];
+}
+
+
 // Set LED strip colors manually
 bool setColors(int a = OFF, int b = OFF, int c = OFF, int d = OFF, int e = OFF, int f = OFF) {
   led.setPixelColor(0, a);
@@ -333,6 +358,10 @@ bool setColors(int a = OFF, int b = OFF, int c = OFF, int d = OFF, int e = OFF, 
   led.setPixelColor(3, d);
   led.setPixelColor(4, e);
   led.setPixelColor(5, f);
+
+  uint32_t temp[6] = {a, b, c, d, e, f};
+  setLEDChanged(temp);
+
   led.show();
   return true;
 }
@@ -389,6 +418,8 @@ const String cspMsg = center(spMsg);
 const String eMsg1 = center("/   Action   \\"); // Cancel display line 1
 const String eMsg2 = center("\\ Terminated /"); // Cancel display line 2
 const String amt = "Auto-Mode";
+const String rMsg1 = center("Pancakes");
+const String rMsg2 = center("Ready");
 
 
 // Display a message on LCD asking for # pancakes (and set requesting to true simultaneously)
@@ -408,7 +439,7 @@ void setGriddleEnabled(bool enabled) {
   digitalWrite(GRIDPIN, enabled);
   griddleEnabled = enabled;
   griddleReady = false;
-  t_griddle = t_current;
+  t_griddle = millis();
 }
 
 
@@ -421,7 +452,7 @@ bool getGriddleEnabled() {
 // Update griddle per heartbeat w/o yielding program
 // Returns true if griddle is fully cooled or heated
 bool updateGriddle() {
-  unsigned long elapsed = difftime(t_current, t_griddle);
+  unsigned long elapsed = difftime(millis(), t_griddle);
 
   if (griddleEnabled) {
     // Heatup anim
@@ -500,25 +531,31 @@ void handleButtons() {
       cancelMode = false;
       requesting = true;
       baking = false;
+      ready = false;
       t_kill = 0;
       clearLine();
 
     } else if (requesting) {
       requesting = false;
       baking = true;
+      ready = false;
+
       if (!heatOnBoot) {
         setGriddleEnabled(true);
       }
 
-      t_bake = t_current;
-      t_dispense = t_current;
+      t_bake = millis();
+      t_dispense = millis();
 
       dispensingActive = false;
       dispenseState = OPENING;
-      dispenseTarget = DISPENSERCLOSE;
+      dispenseTarget = DISPENSEROPEN;
       dispensed = 0;
 
       clearLine();
+    } else if (ready) {
+      requesting = true;
+      baking = false;
     }
   }
 
@@ -527,9 +564,10 @@ void handleButtons() {
     baking = false;
     setGriddleEnabled(false);
     requesting = false;
+    ready = false;
     cancelMode = true;
     clearLine();
-    t_kill = t_current;
+    t_kill = millis();
   }
 
   // Baking System
@@ -550,8 +588,6 @@ void updateMotors() {
 
 // Update per heartbeat fxn
 void heartbeat() {
-  t_current = millis() - t_init; // Increment current time separately
-
   // Set them for next time
   tbA = baking;
   tkA = cancelMode;
@@ -571,7 +607,7 @@ void heartbeat() {
     Serial.println("Timers");
     Serial.print("| B: "); Serial.println(t_bake);
     Serial.print("| T: "); Serial.println(t_kill);
-    Serial.print("| C: "); Serial.println(t_current);
+    Serial.print("| C: "); Serial.println(millis());
     Serial.println("======================");
   	Serial.println("Buttons");
   	Serial.print("| Confirm: "); Serial.println(confirmPressed);
@@ -602,18 +638,28 @@ void requestScreen() {
 }
 
 
+// Runs when baking is finished
+void bakeComplete() {
+  baking = false;
+  dispenseState = CLOSING;
+  dispenseTarget = DISPENSERCLOSE;
+  setGriddleEnabled(false);
+  requesting = false;
+  ready = true;
+}
+
 // The screen that shows when bancakes are paking
 void bakeScreen() {
-  if (!lastPrintLCD1.equals(bMsg) && baking) {
+  if (!lastPrintLCD1.equals(bMsg)) {
     printMessage(bMsg);
     printMessage((level < 17) ? center(((level > 1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg))) : spsMsg, 1);
 
-  } else if (baking) {
+  } else {
     if (griddleReady) {
-      if (difftime(t_dispense, t_current) >= COOKTIME && !dispensingActive) {
+      if (difftime(millis(), t_dispense) >= COOKTIME && !dispensingActive) {
         dispense();
-        t_dispense = t_current;
-        dispense++;
+        t_dispense = millis();
+        dispensed++;
       }
     }
 
@@ -621,6 +667,22 @@ void bakeScreen() {
     if (!lastPrintLCD2.equals(temporaryPrint)) {
       printMessage(temporaryPrint, 1);
     }
+
+    if (dispensed >= level) {
+      bakeComplete();
+    }
+  }
+}
+
+
+// Display for when the pancakes are ready
+void readyScreen() {
+  if (!lastPrintLCD1.equals(rMsg1)) {
+    printMessage(rMsg1);
+  }
+
+  if (!lastPrintLCD2.equals(rMsg2)) {
+    printMessage(rMsg2, 1);
   }
 }
 
@@ -648,9 +710,7 @@ void setup() {
   led.show();
   introductionProtocol();
 
-  // Timer
-  t_init = millis();
-  Serial.begin(9600);
+  // Serial.begin(9600);
 
   // Stepper Motors
   conveyor.setMaxSpeed(CONVEYORSTEP);
@@ -662,13 +722,14 @@ void setup() {
 
 // Run repeatedly
 void loop() {
+  // Main logic handling
   if (cancelMode) {
     if (!lastPrintLCD1.equals(eMsg1)) {
       printMessage(eMsg1);
       printMessage(eMsg2, 1);
     }
 
-    if (difftime(t_current, t_kill) >= KILLTIMEOUT) {
+    if (difftime(millis(), t_kill) >= KILLTIMEOUT) {
       cancelMode = false;
       clearLine();
     }
@@ -683,8 +744,23 @@ void loop() {
     if (baking) {
       bakeScreen();
     }
+    if (ready) {
+      readyScreen();
+    }
   }
 
+  // Light handling
+  if (ready && !getLEDChanged(valid)) {
+    floodColors(valid);
+  } else if (requesting && !getLEDChanged(rqst)) {
+    floodColors(rqst);
+  } else if (baking && !getLEDChanged(warning)) {
+    floodColors(warning);
+  } else if (cancelMode && !getLEDChanged(danger)) {
+    floodColors(danger);
+  } else if (!getLEDChanged(dormant)) {
+    floodColors(dormant);
+  }
 
   heartbeat(); // Updates button states & time trackers
 
