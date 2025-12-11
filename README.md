@@ -1,4 +1,5 @@
 (Diagrams don't match real thing, bc sims don't have necessary components or capabilities)
+
 (I'll get a final product picture up by May probably)
 <hr>
 Power Diagram (Goes with Wowki)
