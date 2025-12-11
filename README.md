@@ -1,10 +1,12 @@
-<h2>Pancake Maker README</h2>
+<h2>Pancake Maker</h2>
 
 > Simulator diagrams don't match real thing, bc sims don't have necessary components or capabilities
 
 > Wowki simulator + my handdrawn diagram is what's actually going to be used
 
-> I'll get a final product picture up by May probably
+> I do mostly electrical and software stuff and my partner Jackson does mostly mechanical and product design stuff. Together, we do other stuff, too.
+
+> We'll get a final product picture up by May, probably.
 <hr>
 Power Diagram (Goes with Wowki)
 
