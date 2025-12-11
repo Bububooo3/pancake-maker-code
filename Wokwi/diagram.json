@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "author": "Anonymous maker",
+  "author": "Richard Scott",
   "editor": "wokwi",
   "parts": [
     { "type": "wokwi-arduino-mega", "id": "mega", "top": 0.6, "left": -3.6, "attrs": {} },
@@ -133,10 +133,7 @@
     { "type": "wokwi-a4988", "id": "drv3", "top": 292.8, "left": 504, "attrs": {} }
   ],
   "connections": [
-    [ "lcd1:K", "mega:GND.1", "black", [ "v38.4", "h9.6", "v28.8", "h-38.2" ] ],
-    [ "lcd1:VSS", "mega:GND.1", "black", [ "v67.2", "h115.4" ] ],
     [ "lcd1:V0", "mega:GND.1", "black", [ "v67.2", "h95.9" ] ],
-    [ "lcd1:VDD", "mega:5V", "gold", [ "v38.4", "h-38.3", "v240", "h189.7" ] ],
     [ "lcd1:RS", "mega:12", "blue", [ "v57.6", "h105.9" ] ],
     [ "lcd1:E", "mega:11", "blue", [ "v9.6", "h38.4", "v28.8", "h58" ] ],
     [ "lcd1:D4", "mega:5", "blue", [ "v28.8", "h109.9" ] ],
