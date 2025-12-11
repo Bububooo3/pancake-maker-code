@@ -5,7 +5,7 @@
 > Wowki simulator + my handdrawn diagram is what's actually going to be used
 <hr>
 
-  I do mostly electrical and software stuff and my partner Jackson does mostly mechanical and product design stuff. Together, we do other stuff, too.
+  Right now, I do mostly electrical and software stuff and my partner Jackson does mostly mechanical and product design stuff. We work together on a lot of stuff, too.
   
 
   We'll get a final product picture up by May, probably.
