@@ -148,7 +148,7 @@ bool tbA = false, tkA = false; // Timer [VarFirstChar] Active (gave up on findin
 ///////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Counts
-#define LEDCOUNT 		6
+#define LEDCOUNT 		8
 
 // Time Lengths (milliseconds)
 #define HEATUP					2e3
@@ -256,16 +256,13 @@ AccelStepper dispenser(AccelStepper::DRIVER, 35, 37);
 #define OFF 0
 
 // Presets
-const uint32_t warning[6] = {YELLOW, ORANGE, YELLOW, ORANGE, YELLOW, ORANGE};
-const uint32_t danger[6] = {RED, RED, RED, RED, RED, RED};
-const uint32_t rqst[6] = {PURPLE, MAGENTA, PURPLE, MAGENTA, PURPLE, MAGENTA};
-const uint32_t dormant[6] = {BLUE, WHITE, BLUE, WHITE, BLUE, WHITE};
-const uint32_t off[6] = {OFF, OFF, OFF, OFF, OFF, OFF};
-const uint32_t valid[6] = {GREEN, GREEN, GREEN, GREEN, GREEN, GREEN};
-const uint32_t bakingA[6] = {WHITE, YELLOW, WHITE, WHITE, WHITE, WHITE};
-const uint32_t bakingB[6] = {WHITE, WHITE, WHITE, YELLOW, WHITE, WHITE};
-const uint32_t bakingC[6] = {WHITE, WHITE, WHITE, WHITE, WHITE, YELLOW};
-uint32_t prevLED[6] = {OFF, OFF, OFF, OFF, OFF, OFF};
+const uint32_t warning[8] = {YELLOW, ORANGE, YELLOW, ORANGE, YELLOW, ORANGE, YELLOW, ORANGE};
+const uint32_t danger[8] = {RED, RED, RED, RED, RED, RED, RED, RED};
+const uint32_t rqst[8] = {PURPLE, MAGENTA, PURPLE, MAGENTA, PURPLE, MAGENTA, PURPLE, MAGENTA};
+const uint32_t dormant[8] = {BLUE, WHITE, BLUE, WHITE, BLUE, WHITE, BLUE, WHITE};
+const uint32_t off[8] = {OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF};
+const uint32_t valid[8] = {GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN};
+uint32_t prevLED[8] = {OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF};
 
 // Dispenser
 bool dispenseState = OPENING, dispensingActive = false;
@@ -347,19 +344,23 @@ void setLEDChanged(uint32_t a[])  {
   prevLED[3] = a[3];
   prevLED[4] = a[4];
   prevLED[5] = a[5];
+  prevLED[6] = a[6];
+  prevLED[7] = a[7];
 }
 
 
 // Set LED strip colors manually
-bool setColors(int a = OFF, int b = OFF, int c = OFF, int d = OFF, int e = OFF, int f = OFF) {
+bool setColors(int a = OFF, int b = OFF, int c = OFF, int d = OFF, int e = OFF, int f = OFF, int g = OFF, int h = OFF) {
   led.setPixelColor(0, a);
   led.setPixelColor(1, b);
   led.setPixelColor(2, c);
   led.setPixelColor(3, d);
   led.setPixelColor(4, e);
   led.setPixelColor(5, f);
+  led.setPixelColor(6, e);
+  led.setPixelColor(7, f);
 
-  uint32_t temp[6] = {a, b, c, d, e, f};
+  uint32_t temp[8] = {a, b, c, d, e, f, g, h};
   setLEDChanged(temp);
 
   led.show();
@@ -368,11 +369,11 @@ bool setColors(int a = OFF, int b = OFF, int c = OFF, int d = OFF, int e = OFF, 
 
 
 // Set LED strip colors using a preset
-bool floodColors(const uint32_t z[6]) {
+bool floodColors(const uint32_t z[8]) {
   if (getArraySize(z) < 6) {
     return false;
   }
-  setColors(z[0], z[1], z[2], z[3], z[4], z[5]);
+  setColors(z[0], z[1], z[2], z[3], z[4], z[5], z[6], z[7]);
   return true;
 }
 
@@ -385,6 +386,8 @@ bool disableLED() {
   led.setPixelColor(3, OFF);
   led.setPixelColor(4, OFF);
   led.setPixelColor(5, OFF);
+  led.setPixelColor(6, OFF);
+  led.setPixelColor(7, OFF);
   led.show();
   return true;
 }
