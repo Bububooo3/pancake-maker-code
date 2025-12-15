@@ -2,7 +2,7 @@
 
 > Simulator diagrams don't match real thing, bc sims don't have necessary components or capabilities
 
-> Wowki simulator + my handdrawn diagram is what's actually going to be used
+> Wokwi simulator + my handdrawn diagram is what's actually going to be used
 <hr>
 
   Right now, I do mostly electrical and software stuff and my partner Jackson does mostly mechanical and product design stuff. We work together on a lot of stuff, too.
