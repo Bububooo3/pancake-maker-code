@@ -8,7 +8,7 @@
   Right now, I do mostly electrical and software stuff and my partner Jackson does mostly mechanical and product design stuff. We work together on a lot of stuff, too.
   
 
-  We'll get a final product picture up by May, probably.
+  I'll get a final product picture up by May, probably.
 <hr>
 Power Diagram (Goes with Wokwi)
 
