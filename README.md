@@ -10,7 +10,7 @@
 
   We'll get a final product picture up by May, probably.
 <hr>
-Power Diagram (Goes with Wowki)
+Power Diagram (Goes with Wokwi)
 
 ![image](https://github.com/user-attachments/assets/7321d1cd-10e7-4670-8094-b82e637ada92)
 
