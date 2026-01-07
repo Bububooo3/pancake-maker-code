@@ -12,7 +12,8 @@
 <hr>
 Power Diagram (Goes with Wokwi)
 
-![image](https://github.com/user-attachments/assets/7321d1cd-10e7-4670-8094-b82e637ada92)
+![image](https://github.com/user-attachments/assets/7ddbf1de-fb0b-4b04-95ec-b49d6763b487)
+
 
 <hr>
 Wokwi (Current system)
