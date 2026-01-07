@@ -230,7 +230,7 @@ const char coolingAnim[][16] = {\
 LiquidCrystal lcd(12, 11, 5, 4, 3, 13);
 Adafruit_NeoPixel led(LEDCOUNT, LEDPIN, NEO_GRB + NEO_KHZ800);
 AccelStepper conveyor(AccelStepper::DRIVER, 22, 26);
-AccelStepper fan(AccelStepper::DRIVER, 25, 23);
+// <disabled> AccelStepper fan(AccelStepper::DRIVER, 25, 23);
 AccelStepper dispenser(AccelStepper::DRIVER, 35, 37);
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -395,7 +395,7 @@ bool disableLED() {
 
 // Set fan motor pulse rate
 void setFanPower(float i) {
-  fan.setSpeed(MAXSTEP * constrain(i, 0, 1));
+  // <disabled> fan.setSpeed(MAXSTEP * constrain(i, 0, 1));
 }
 
 
@@ -575,7 +575,7 @@ void handleButtons() {
 
   // Baking System
   conveyor.setSpeed((baking) ? CONVEYORSTEP : 0);
-  fan.setSpeed((baking) ? MAXSTEP : 0);
+  // <disabled> fan.setSpeed((baking) ? MAXSTEP : 0);
 
   // Store state
   confirmPressedPrev = confirmPressed;
@@ -584,7 +584,7 @@ void handleButtons() {
 
 void updateMotors() {
   conveyor.runSpeed(); // continuous
-  fan.runSpeed();			// continuous
+  // <disabled> fan.runSpeed();			// continuous
   dispenser.run();	 // position-based
   serviceMsg = (!(griddleReady) && updateGriddle());
 }
@@ -717,7 +717,7 @@ void setup() {
 
   // Stepper Motors
   conveyor.setMaxSpeed(CONVEYORSTEP);
-  fan.setMaxSpeed(MAXSTEP);
+  // <disabled> fan.setMaxSpeed(MAXSTEP);
   dispenser.setMaxSpeed(800);
   dispenser.setAcceleration(400);
 }
