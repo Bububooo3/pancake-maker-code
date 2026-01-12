@@ -27,6 +27,4 @@ https://wokwi.com/projects/449513725919513601
 
 <h3>Prototypes (Wokwi)</h3>
 
-[Button Prototype](https://wokwi.com/projects/452955196940796929)
-
 [Conveyor Prototype](https://wokwi.com/projects/452955989770288129)
