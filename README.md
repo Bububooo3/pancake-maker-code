@@ -10,9 +10,9 @@
 
   I'll get a final product picture up by May, probably.
 <hr>
-Power Diagram (Goes with Wokwi)
+Power Diagram
 
-![image](https://github.com/user-attachments/assets/7ddbf1de-fb0b-4b04-95ec-b49d6763b487)
+https://github.com/Bububooo3/pancake-maker-code/blob/main/Pancake%20Maker%20Electronic%20Diagram.pdf
 
 
 <hr>
