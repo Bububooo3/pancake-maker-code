@@ -10,18 +10,21 @@
 
   I'll get a final product picture up by May, probably.
 <hr>
-Power Diagram
+<h3>Power Diagram</h3>
 
 https://github.com/Bububooo3/pancake-maker-code/blob/main/Pancake%20Maker%20Electronic%20Diagram.pdf
 
 
 <hr>
-Wokwi (Current system)
+<h3>Wokwi (Current system)</h3>
 
 https://wokwi.com/projects/449513725919513601
 
+> [TinkerCAD (Old & incomplete)](https://www.tinkercad.com/things/4bpHhnqHLCV-subsystem-wiring?sharecode=QHGSQnV_B9N803rIVb89A1Af-PfIrJgGjXz6PZI-W6I)
+
 
 <hr>
-TinkerCAD (Old & incomplete)
 
-https://www.tinkercad.com/things/4bpHhnqHLCV-subsystem-wiring?sharecode=QHGSQnV_B9N803rIVb89A1Af-PfIrJgGjXz6PZI-W6I
+<h3>Prototypes (Wokwi)</h3>
+
+[Button Prototype](https://wokwi.com/projects/452955196940796929)
