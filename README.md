@@ -24,7 +24,3 @@ https://wokwi.com/projects/449513725919513601
 
 
 <hr>
-
-<h3>Prototypes (Wokwi)</h3>
-
-[Conveyor Prototype](https://wokwi.com/projects/452955989770288129)
