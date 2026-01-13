@@ -459,7 +459,7 @@ bool updateGriddle() {
 
   if (griddleEnabled) {
     // Heatup anim
-    int frame = (elapsed / ANIMINC) % getArraySize(heatingAnim);
+    int frame = static_cast<int>(elapsed / ANIMINC) % getArraySize(heatingAnim);
     printMessage(center(heatingAnim[frame]), 1);
 
     if (!griddleReady && elapsed >= HEATUP) {
@@ -468,7 +468,7 @@ bool updateGriddle() {
     }
   } else {
     // Cooldown anim
-    int frame = (elapsed / ANIMINC) % getArraySize(coolingAnim);
+    int frame = static_cast<int>(elapsed / ANIMINC) % getArraySize(coolingAnim);
     printMessage(center(coolingAnim[frame]), 1);
 
     if (!griddleReady && elapsed >= COOLDOWN) {
