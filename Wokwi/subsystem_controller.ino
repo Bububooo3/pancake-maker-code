@@ -1,25 +1,16 @@
 #include <Adafruit_NeoPixel.h>
-#include <LiquidCrystal.h>
+#include <LiquidCrystal_I2C.h>
 #include <AccelStepper.h>
+#include <Wire.h>
 
 /*
   PINS
 
-  LCD <Resistor>:
-	VSS 	→ 	GND
-	VDD		→ 	5V
-	V0		→ 	GND
-
-	RS		→		12
-	E		→		11
-
-	D4		→		5
-	D5		→		4
-	D6		→		3
-	D7		→		13
-
-	A		→		<220 Ω>		→		5V
-	K		→		GND
+  LCD w/ I2C Backpack:
+	VCC 	→ 	5V
+  GND 	→ 	GND
+  SDA 	→ 	20
+  SCL 	→ 	21
 
 
   Knob Potentiometer:
@@ -74,14 +65,14 @@
 	GND.1	→		GND
 
 
-  Confirm Push Button <Resistor>:
+  Confirm Push Button:
 	1:1 L	→		7
-	1:2 R →		<1 KΩ>	→		GND
+	1:2 R	→		GND
 
 
-  Cancel Push Button <Resistor>:
+  Cancel Push Button:
 	1:1 L	→		2
-	1:2 R →		<1 KΩ>	→		GND
+	1:2 R	→		GND
 */
 
 /*
@@ -227,7 +218,7 @@ const char coolingAnim[][16] = {\
 // Initialize LED Strip: (#LEDs, Pin, Color Mode + Signal)
 // Initialize stepper motors: (driver, STEP, DIR)
 
-LiquidCrystal lcd(12, 11, 5, 4, 3, 13);
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 Adafruit_NeoPixel led(LEDCOUNT, LEDPIN, NEO_GRB + NEO_KHZ800);
 AccelStepper conveyor(AccelStepper::DRIVER, 22, 26);
 // <disabled> AccelStepper fan(AccelStepper::DRIVER, 25, 23);
@@ -706,7 +697,8 @@ void setup() {
   pinMode(GRIDPIN, OUTPUT);
 
   // LCD
-  lcd.begin(16, 2);
+  lcd.init();
+  lcd.backlight();
 
   // LED
   led.begin();
