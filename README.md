@@ -2,7 +2,7 @@
 
 > Simulator diagrams don't match real thing, bc sims don't have necessary components or capabilities
 
-> Wokwi simulator + my handdrawn diagram is what's actually going to be used
+> ⚠️ **ATP, there is no diagram that describes exactly the structure of the circuit. Even the one in this repository has been revised in real-time during prototyping.**
 <hr>
 
   Right now, I do mostly electrical and software stuff and my partner Jackson does mostly mechanical and product design stuff. We work together on a lot of stuff, too.
