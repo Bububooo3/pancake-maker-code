@@ -20,7 +20,9 @@ https://github.com/Bububooo3/pancake-maker-code/blob/main/Pancake%20Maker%20Elec
 
 https://wokwi.com/projects/449513725919513601
 
-> [TinkerCAD (Old & incomplete)](https://www.tinkercad.com/things/4bpHhnqHLCV-subsystem-wiring?sharecode=QHGSQnV_B9N803rIVb89A1Af-PfIrJgGjXz6PZI-W6I)
+> Prototype: https://wokwi.com/projects/454495520037891073
+>
+> TinkerCAD: [(Outdated)](https://www.tinkercad.com/things/4bpHhnqHLCV-subsystem-wiring?sharecode=QHGSQnV_B9N803rIVb89A1Af-PfIrJgGjXz6PZI-W6I)
 
 
 <hr>
