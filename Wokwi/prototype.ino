@@ -97,9 +97,10 @@ String lastPrintLCD2 = "";
 String placeholder = "                ";
 int level = 1;
 int plevel = 0;
+int smoothPot = 0;
 int dispensed = 0;
 unsigned long t_bake, t_kill, t_griddle, t_dispense;
-bool tbA = false, tkA = false; // Timer [VarFirstChar] Active (gave up on finding a clever way to do it)
+bool tbA = false, tkA = false;  // Timer [VarFirstChar] Active (gave up on finding a clever way to do it)
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -112,69 +113,71 @@ bool tbA = false, tkA = false; // Timer [VarFirstChar] Active (gave up on findin
 // #define LEDCOUNT 		8
 
 // Time Lengths (milliseconds)
-#define HEATUP					2e3
-#define COOLDOWN				2e3
-#define KILLTIMEOUT 		60e3
-#define MSGWAIT					1.5e3
-#define ANIMINC 				0.25e3
-#define COOKTIME 				60e3
+#define HEATUP 2e3
+#define COOLDOWN 2e3
+#define KILLTIMEOUT 60e3
+#define MSGWAIT 1.5e3
+#define ANIMINC 0.25e3
+#define COOKTIME 60e3
 
 // Step pulse rate (steps/second)
-#define	MAXSTEP					800.0
-#define	CONVEYORSTEP		800.0
-#define DISPENSERSPEED	800.0
-#define DISPENSERACCEL	400.0
+#define MAXSTEP 800.0
+#define CONVEYORSTEP 800.0
+#define DISPENSERSPEED 800.0
+#define DISPENSERACCEL 400.0
 
 // Step positions (Usually 1.8°/step, 200 steps/revolution)	← <Research more based on specific motor>
-#define DISPENSEROPEN		0 // TODO placeholder
-#define DISPENSERCLOSE	0 // TODO placeholder
+#define DISPENSEROPEN 0   // TODO placeholder
+#define DISPENSERCLOSE 0  // TODO placeholder
 
 // Dispenser states
-#define OPENING					true
-#define CLOSING					false
+#define OPENING true
+#define CLOSING false
 
 // Buttons
-#define CONFIRMPIN 			7
-#define CANCELPIN 			2
+#define CONFIRMPIN 7
+#define CANCELPIN 2
 
 // Appliances
 // #define LEDPIN 					6
 // #define GRIDPIN 				8
-
+#define CONVEYORPIN_EN 24
+#define COOLINGPIN_EN 27
+#define DISPENSERPIN_EN 33
 
 
 // Fixed-Size Arrays
-const char intro[][16] = {\
-                          "pancake maker", \
-                          "pAncake maker", \
-                          "paNcake maker", \
-                          "panCake maker", \
-                          "pancAke maker", \
-                          "pancaKe maker", \
-                          "pancakE maker", \
-                          "pancake Maker", \
-                          "pancake mAker", \
-                          "pancake maKer", \
-                          "pancake makEr", \
-                          "pancake makeR", \
-                          " ", \
-                         };
+const char intro[][16] = {
+  "pancake maker",
+  "pAncake maker",
+  "paNcake maker",
+  "panCake maker",
+  "pancAke maker",
+  "pancaKe maker",
+  "pancakE maker",
+  "pancake Maker",
+  "pancake mAker",
+  "pancake maKer",
+  "pancake makEr",
+  "pancake makeR",
+  " ",
+};
 
-const char heatingAnim[][16] = {\
-                                "heating", \
-                                "heating.", \
-                                "heating..", \
-                                "heating...", \
-                                "heating", \
-                               };
+const char heatingAnim[][16] = {
+  "heating",
+  "heating.",
+  "heating..",
+  "heating...",
+  "heating",
+};
 
-const char coolingAnim[][16] = {\
-                                "cooling", \
-                                "cooling.", \
-                                "cooling..", \
-                                "cooling...", \
-                                "cooling", \
-                               };
+const char coolingAnim[][16] = {
+  "cooling",
+  "cooling.",
+  "cooling..",
+  "cooling...",
+  "cooling",
+};
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -238,7 +241,7 @@ long dispenseTarget = DISPENSERCLOSE;
 /////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////
 // Macros
-#define getArraySize(a) 	(sizeof(a) / sizeof((a)[0]))
+#define getArraySize(a) (sizeof(a) / sizeof((a)[0]))
 
 // Center/truncate string (16 characters)
 String center(String msg) {
@@ -362,7 +365,7 @@ bool clearLine(int lvl = -1) {
 
 
 // Get the net difference between these two times in milliseconds
-unsigned long difftime(long t1, long t2) {
+unsigned long difftime(unsigned long t1, unsigned long t2) {
   return abs(t2 - t1);
 }
 
@@ -376,12 +379,12 @@ unsigned long difftime(long t1, long t2) {
 ////////////////////////////////////////////////////////////////////////////////////////////
 // EXTRA INTERFACE CONSTANTS (for optimization, convenience & such)
 const String bMsg = center("Baking");
-const String spsMsg = "Pancakes"; // The word Pancakes
-const String spMsg = spsMsg.substring(0, 7); // The word Pancake
-const String cspsMsg = center(spsMsg); // So comprehensive 😍
+const String spsMsg = "Pancakes";             // The word Pancakes
+const String spMsg = spsMsg.substring(0, 7);  // The word Pancake
+const String cspsMsg = center(spsMsg);        // So comprehensive 😍
 const String cspMsg = center(spMsg);
-const String eMsg1 = center("/   Action   \\"); // Cancel display line 1
-const String eMsg2 = center("\\ Terminated /"); // Cancel display line 2
+const String eMsg1 = center("/   Action   \\");  // Cancel display line 1
+const String eMsg2 = center("\\ Terminated /");  // Cancel display line 2
 const String amt = "Auto-Mode";
 const String rMsg1 = center("Pancakes");
 const String rMsg2 = center("Ready");
@@ -478,7 +481,7 @@ void dispense() {
   //   dispensingActive = false;
   // }
 
-  if (difftime(millis(), t_dispense) >= COOKTIME/8.5) {
+  if (difftime(millis(), t_dispense) >= COOKTIME / 8.5) {
     dispensingActive = false;
   }
 }
@@ -487,7 +490,7 @@ void dispense() {
 // Handle the confirm/cancel button logic
 void handleButtons() {
   bool confirmPressed = (digitalRead(CONFIRMPIN) == LOW);
-  bool cancelPressed  = (digitalRead(CANCELPIN) == LOW);
+  bool cancelPressed = (digitalRead(CANCELPIN) == LOW);
 
   // Confirm button pressed
   if (!baking && !confirmPressedPrev && confirmPressed) {
@@ -538,13 +541,17 @@ void handleButtons() {
   conveyor.setSpeed((baking) ? CONVEYORSTEP : 0);
   // <disabled> fan.setSpeed((baking) ? MAXSTEP : 0);
 
+  digitalWrite(CONVEYORPIN_EN, (baking) ? LOW : HIGH);
+  // digitalWrite(COOLINGPIN_EN, (baking) ? LOW : HIGH);
+  // digitalWrite(DISPENSERPIN_EN, (dispensingActive) ? LOW : HIGH);
+
   // Store state
   confirmPressedPrev = confirmPressed;
   cancelPressedPrev = cancelPressed;
 }
 
 void updateMotors() {
-  conveyor.runSpeed(); // continuous
+  conveyor.run();  // continuous
   // <disabled> fan.runSpeed();			// continuous
   // dispenser.run();	 // position-based
   serviceMsg = (!(griddleReady) && updateGriddle());
@@ -579,25 +586,26 @@ void heartbeat() {
   	Serial.print("| Baking: "); Serial.println(baking);
   	Serial.print("| Requesting: "); Serial.println(requesting);
   */
-
 }
 
 
 // The screen for asking for pancakes
 void requestScreen() {
-  dispensed = 0;
+  // Low‑pass filter
+  smoothPot = (smoothPot * 0.8) + (constrain(analogRead(A0), 5, 1018) * 0.2);
 
   // Map 0-1028 :: 1–17
-  level = map(analogRead(A0), 0, 1023, 1, 17);
+  // Map to pancake levels
+  level = map(smoothPot, 0, 1023, 1, 17);
 
   // Choose # Pancakes Screen
-  if (level != plevel && !baking) {
+  if ((abs(level - plevel) >= 1) && !baking) {
     if (level < 17) {
       printMessage(center((level > 1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg)), 1);
     } else {
       printMessage(center(amt), 1);
     }
-    plevel = level; // TODO Implement Auto Mode
+    plevel = level;  // TODO Implement Auto Mode
   }
 }
 
@@ -663,8 +671,11 @@ void setup() {
   // Pin Initialization
   pinMode(CONFIRMPIN, INPUT_PULLUP);
   pinMode(CANCELPIN, INPUT_PULLUP);
-  pinMode(LEDPIN, OUTPUT);
+  // pinMode(LEDPIN, OUTPUT);
   // pinMode(GRIDPIN, OUTPUT);
+  pinMode(CONVEYORPIN_EN, OUTPUT);
+  pinMode(COOLINGPIN_EN, OUTPUT);
+  pinMode(DISPENSERPIN_EN, OUTPUT);
 
   // LCD
   lcd.init();
@@ -728,7 +739,7 @@ void loop() {
   //   floodColors(dormant);
   // }
 
-  heartbeat(); // Updates button states & time trackers
+  heartbeat();  // Updates button states & time trackers
 
   // delay(150);
 }
