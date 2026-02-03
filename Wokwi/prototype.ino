@@ -97,7 +97,6 @@ String lastPrintLCD2 = "";
 String placeholder = "                ";
 int level = 1;
 int plevel = 0;
-int smoothPot = 0;
 int dispensed = 0;
 unsigned long t_bake, t_kill, t_griddle, t_dispense;
 bool tbA = false, tkA = false;  // Timer [VarFirstChar] Active (gave up on finding a clever way to do it)
@@ -481,7 +480,7 @@ void dispense() {
   //   dispensingActive = false;
   // }
 
-  if (difftime(millis(), t_dispense) >= COOKTIME / 8.5) {
+  if (level < 17 && dispensed >= level) {
     dispensingActive = false;
   }
 }
@@ -591,12 +590,9 @@ void heartbeat() {
 
 // The screen for asking for pancakes
 void requestScreen() {
-  // Low‑pass filter
-  smoothPot = (smoothPot * 0.8) + (constrain(analogRead(A0), 5, 1018) * 0.2);
-
-  // Map 0-1028 :: 1–17
+   // Map 0-1028 :: 1–17
   // Map to pancake levels
-  level = map(smoothPot, 0, 1023, 1, 17);
+  level = map(constrain(analogRead(A0), 5, 1018), 0, 1023, 1, 17);
 
   // Choose # Pancakes Screen
   if ((abs(level - plevel) >= 1) && !baking) {
@@ -624,7 +620,8 @@ void bakeComplete() {
 void bakeScreen() {
   if (!lastPrintLCD1.equals(bMsg)) {
     printMessage(bMsg);
-    printMessage((level < 17) ? center(((level > 1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg))) : spsMsg, 1);
+    printMessage(
+      (level < 17) ? center(((level > 1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg))) : spsMsg, 1);
 
   } else {
     if (griddleReady) {
