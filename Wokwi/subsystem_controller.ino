@@ -170,6 +170,9 @@ bool tbA = false, tkA = false; // Timer [VarFirstChar] Active (gave up on findin
 // Appliances
 #define LEDPIN 					6
 #define GRIDPIN 				8
+#define CONVEYORPIN_EN 24
+#define COOLINGPIN_EN 27
+#define DISPENSERPIN_EN 33
 
 
 
@@ -437,12 +440,6 @@ void setGriddleEnabled(bool enabled) {
 }
 
 
-// Just for simplicity
-bool getGriddleEnabled() {
-  return griddleEnabled;
-}
-
-
 // Update griddle per heartbeat w/o yielding program
 // Returns true if griddle is fully cooled or heated
 bool updateGriddle() {
@@ -568,6 +565,11 @@ void handleButtons() {
   conveyor.setSpeed((baking) ? CONVEYORSTEP : 0);
   // <disabled> fan.setSpeed((baking) ? MAXSTEP : 0);
 
+  digitalWrite(CONVEYORPIN_EN, (baking) ? LOW : HIGH);
+  // digitalWrite(COOLINGPIN_EN, (baking) ? LOW : HIGH);
+  // digitalWrite(DISPENSERPIN_EN, (dispensingActive) ? LOW : HIGH);
+
+
   // Store state
   confirmPressedPrev = confirmPressed;
   cancelPressedPrev = cancelPressed;
@@ -621,13 +623,13 @@ void requestScreen() {
   level = map(analogRead(A0), 0, 1023, 1, 17);
 
   // Choose # Pancakes Screen
-  if (level != plevel && !baking) {
+  if ((abs(level - plevel) >= 1) && !baking) {
     if (level < 17) {
       printMessage(center((level > 1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg)), 1);
     } else {
       printMessage(center(amt), 1);
     }
-    plevel = level;
+    plevel = level; // TODO Implement Auto Mode!!!
   }
 }
 
@@ -695,6 +697,9 @@ void setup() {
   pinMode(CANCELPIN, INPUT_PULLUP);
   pinMode(LEDPIN, OUTPUT);
   pinMode(GRIDPIN, OUTPUT);
+  pinMode(CONVEYORPIN_EN, OUTPUT);
+  pinMode(COOLINGPIN_EN, OUTPUT);
+  pinMode(DISPENSERPIN_EN, OUTPUT);
 
   // LCD
   lcd.init();
@@ -709,6 +714,7 @@ void setup() {
 
   // Stepper Motors
   conveyor.setMaxSpeed(CONVEYORSTEP);
+  conveyor.setAcceleration(400);
   // <disabled> fan.setMaxSpeed(MAXSTEP);
   dispenser.setMaxSpeed(800);
   dispenser.setAcceleration(400);
