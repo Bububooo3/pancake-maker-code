@@ -119,7 +119,7 @@
 // GLOBALS //
 /////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
-bool baking = false, requesting = false, cancelMode = false, ready = false;
+// bool baking = false, requesting = false, cancelMode = false, ready = false;
 bool confirmPressedPrev = LOW, cancelPressedPrev = LOW;
 bool griddleEnabled = false, griddleReady = true, heatOnBoot = false, serviceMsg = false;
 String lastPrintLCD1 = "";
@@ -129,7 +129,6 @@ int level = 1;
 int plevel = 0;
 int dispensed = 0;
 unsigned long t_bake, t_kill, t_griddle, t_dispense;
-bool tbA = false, tkA = false; // Timer [VarFirstChar] Active (gave up on finding a clever way to do it)
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -139,75 +138,85 @@ bool tbA = false, tkA = false; // Timer [VarFirstChar] Active (gave up on findin
 ///////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Counts
-#define LEDCOUNT 		8
+#define LEDCOUNT 8
 
 // Time Lengths (milliseconds)
-#define HEATUP					2e3
-#define COOLDOWN				2e3
-#define KILLTIMEOUT 		60e3
-#define MSGWAIT					1.5e3
-#define ANIMINC 				0.25e3
-#define COOKTIME 				10e3
+#define HEATUP 2e3
+#define COOLDOWN 2e3
+#define KILLTIMEOUT 60e3
+#define MSGWAIT 1.5e3
+#define ANIMINC 0.25e3
+#define COOKTIME 10e3
 
 // Step pulse rate (steps/second)
-#define	MAXSTEP					800.0
-#define	CONVEYORSTEP		800.0
-#define DISPENSERSPEED	800.0
-#define DISPENSERACCEL	400.0
+#define MAXSTEP 800.0
+#define CONVEYORSTEP 800.0
+#define DISPENSERSPEED 800.0
+#define DISPENSERACCEL 400.0
 
 // Step positions (Usually 1.8°/step, 200 steps/revolution)	← <Research more based on specific motor>
-#define DISPENSEROPEN		0
-#define DISPENSERCLOSE	0
+#define DISPENSEROPEN 0
+#define DISPENSERCLOSE 0
 
 // Dispenser states
-#define OPENING					true
-#define CLOSING					false
+#define OPENING true
+#define CLOSING false
 
 // Buttons
-#define CONFIRMPIN 			7
-#define CANCELPIN 			2
+#define CONFIRMPIN 7
+#define CANCELPIN 2
 
 // Appliances
-#define LEDPIN 					6
-#define GRIDPIN 				8
+#define LEDPIN 6
+#define GRIDPIN 8
 #define CONVEYORPIN_EN 24
 #define COOLINGPIN_EN 27
 #define DISPENSERPIN_EN 33
 
 
+// State Machine
+enum Status {
+  STATUS_EMPTY,
+  STATUS_REQUEST,
+  STATUS_BAKE,
+  STATUS_CANCEL,
+  STATUS_READY
+};
+
+Status status = STATUS_REQUEST;
 
 // Fixed-Size Arrays
-const char intro[][16] = {\
-                          "pancake maker", \
-                          "pAncake maker", \
-                          "paNcake maker", \
-                          "panCake maker", \
-                          "pancAke maker", \
-                          "pancaKe maker", \
-                          "pancakE maker", \
-                          "pancake Maker", \
-                          "pancake mAker", \
-                          "pancake maKer", \
-                          "pancake makEr", \
-                          "pancake makeR", \
-                          " ", \
-                         };
+const char intro[][16] = {
+  "pancake maker",
+  "pAncake maker",
+  "paNcake maker",
+  "panCake maker",
+  "pancAke maker",
+  "pancaKe maker",
+  "pancakE maker",
+  "pancake Maker",
+  "pancake mAker",
+  "pancake maKer",
+  "pancake makEr",
+  "pancake makeR",
+  " ",
+};
 
-const char heatingAnim[][16] = {\
-                                "heating", \
-                                "heating.", \
-                                "heating..", \
-                                "heating...", \
-                                "heating", \
-                               };
+const char heatingAnim[][16] = {
+  "heating",
+  "heating.",
+  "heating..",
+  "heating...",
+  "heating",
+};
 
-const char coolingAnim[][16] = {\
-                                "cooling", \
-                                "cooling.", \
-                                "cooling..", \
-                                "cooling...", \
-                                "cooling", \
-                               };
+const char coolingAnim[][16] = {
+  "cooling",
+  "cooling.",
+  "cooling..",
+  "cooling...",
+  "cooling",
+};
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -250,13 +259,13 @@ AccelStepper dispenser(AccelStepper::DRIVER, 35, 37);
 #define OFF 0
 
 // Presets
-const uint32_t warning[8] = {YELLOW, ORANGE, YELLOW, ORANGE, YELLOW, ORANGE, YELLOW, ORANGE};
-const uint32_t danger[8] = {RED, RED, RED, RED, RED, RED, RED, RED};
-const uint32_t rqst[8] = {PURPLE, MAGENTA, PURPLE, MAGENTA, PURPLE, MAGENTA, PURPLE, MAGENTA};
-const uint32_t dormant[8] = {BLUE, WHITE, BLUE, WHITE, BLUE, WHITE, BLUE, WHITE};
-const uint32_t off[8] = {OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF};
-const uint32_t valid[8] = {GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN};
-uint32_t prevLED[8] = {OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF};
+const uint32_t warning[8] = { YELLOW, ORANGE, YELLOW, ORANGE, YELLOW, ORANGE, YELLOW, ORANGE };
+const uint32_t danger[8] = { RED, RED, RED, RED, RED, RED, RED, RED };
+const uint32_t rqst[8] = { PURPLE, MAGENTA, PURPLE, MAGENTA, PURPLE, MAGENTA, PURPLE, MAGENTA };
+const uint32_t dormant[8] = { BLUE, WHITE, BLUE, WHITE, BLUE, WHITE, BLUE, WHITE };
+const uint32_t off[8] = { OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF };
+const uint32_t valid[8] = { GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN };
+uint32_t prevLED[8] = { OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF };
 
 // Dispenser
 bool dispenseState = OPENING, dispensingActive = false;
@@ -271,7 +280,7 @@ long dispenseTarget = DISPENSERCLOSE;
 /////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////
 // Macros
-#define getArraySize(a) 	(sizeof(a) / sizeof((a)[0]))
+#define getArraySize(a) (sizeof(a) / sizeof((a)[0]))
 
 // Center/truncate string (16 characters)
 String center(String msg) {
@@ -322,16 +331,10 @@ bool clearLine(int lvl = -1) {
 // Return whether the previous LED is the same as the current one
 bool getLEDChanged(uint32_t a[]) {
   return (
-           prevLED[0] == a[0] &&
-           prevLED[1] == a[1] &&
-           prevLED[2] == a[2] &&
-           prevLED[3] == a[3] &&
-           prevLED[4] == a[4] &&
-           prevLED[5] == a[5]
-         );
+    prevLED[0] == a[0] && prevLED[1] == a[1] && prevLED[2] == a[2] && prevLED[3] == a[3] && prevLED[4] == a[4] && prevLED[5] == a[5]);
 }
 
-void setLEDChanged(uint32_t a[])  {
+void setLEDChanged(uint32_t a[]) {
   prevLED[0] = a[0];
   prevLED[1] = a[1];
   prevLED[2] = a[2];
@@ -354,7 +357,7 @@ bool setColors(int a = OFF, int b = OFF, int c = OFF, int d = OFF, int e = OFF, 
   led.setPixelColor(6, e);
   led.setPixelColor(7, f);
 
-  uint32_t temp[8] = {a, b, c, d, e, f, g, h};
+  uint32_t temp[8] = { a, b, c, d, e, f, g, h };
   setLEDChanged(temp);
 
   led.show();
@@ -408,22 +411,30 @@ unsigned long difftime(long t1, long t2) {
 ////////////////////////////////////////////////////////////////////////////////////////////
 // EXTRA INTERFACE CONSTANTS (for optimization, convenience & such)
 const String bMsg = center("Baking");
-const String spsMsg = "Pancakes"; // The word Pancakes
-const String spMsg = spsMsg.substring(0, 7); // The word Pancake
-const String cspsMsg = center(spsMsg); // So comprehensive 😍
+const String spsMsg = "Pancakes";             // The word Pancakes
+const String spMsg = spsMsg.substring(0, 7);  // The word Pancake
+const String cspsMsg = center(spsMsg);        // So comprehensive 😍
 const String cspMsg = center(spMsg);
-const String eMsg1 = center("/   Action   \\"); // Cancel display line 1
-const String eMsg2 = center("\\ Terminated /"); // Cancel display line 2
+const String eMsg1 = center("/   Action   \\");  // Cancel display line 1
+const String eMsg2 = center("\\ Terminated /");  // Cancel display line 2
 const String amt = "Auto-Mode";
 const String rMsg1 = center("Pancakes");
 const String rMsg2 = center("Ready");
 
+// QoL method
+bool isActive(Status check) {
+  return (status == check);
+}
+
+void setActive(Status check) {
+  status = check;
+}
 
 // Display a message on LCD asking for # pancakes (and set requesting to true simultaneously)
-bool requestNumPancakes() {
+void requestNumPancakes() {
+  setActive(STATUS_REQUEST);
   printMessage(center("Bake how many?"));
   clearLine(1);
-  return true;
 }
 
 
@@ -514,59 +525,52 @@ void dispense() {
 // Handle the confirm/cancel button logic
 void handleButtons() {
   bool confirmPressed = (digitalRead(CONFIRMPIN) == LOW);
-  bool cancelPressed  = (digitalRead(CANCELPIN) == LOW);
+  bool cancelPressed = (digitalRead(CANCELPIN) == LOW);
 
   // Confirm button pressed
-  if (!baking && !confirmPressedPrev && confirmPressed) {
-    if (cancelMode) {
-      cancelMode = false;
-      requesting = true;
-      baking = false;
-      ready = false;
-      t_kill = 0;
-      clearLine();
+  if (!confirmPressedPrev && confirmPressed) {
+    switch (status) {
+      case STATUS_CANCEL:
+        setActive(STATUS_REQUEST);
+        t_kill = 0;
+        clearLine();
+        break;
 
-    } else if (requesting) {
-      requesting = false;
-      baking = true;
-      ready = false;
+      case STATUS_REQUEST:
+        if (!heatOnBoot) setGriddleEnabled(true);
 
-      if (!heatOnBoot) {
-        setGriddleEnabled(true);
-      }
+        t_bake = millis();
+        t_dispense = millis();
 
-      t_bake = millis();
-      t_dispense = millis();
+        dispensingActive = false;
+        dispenseState = OPENING;
+        dispenseTarget = DISPENSEROPEN;
+        dispensed = 0;
 
-      dispensingActive = false;
-      dispenseState = OPENING;
-      dispenseTarget = DISPENSEROPEN;
-      dispensed = 0;
+        clearLine();
+        setActive(STATUS_BAKE);
+        break;
 
-      clearLine();
-    } else if (ready) {
-      requesting = true;
-      baking = false;
+      case STATUS_READY:
+        setActive(STATUS_REQUEST);
+        break;
     }
   }
 
   // Cancel button pressed
   if (cancelPressed && !cancelPressedPrev) {
-    baking = false;
+    setActive(STATUS_CANCEL);
     setGriddleEnabled(false);
-    requesting = false;
-    ready = false;
-    cancelMode = true;
     clearLine();
     t_kill = millis();
   }
 
   // Baking System
-  conveyor.setSpeed((baking) ? CONVEYORSTEP : 0);
-  // <disabled> fan.setSpeed((baking) ? MAXSTEP : 0);
+  conveyor.setSpeed(isActive(STATUS_BAKE) ? CONVEYORSTEP : 0);
+  // <disabled> fan.setSpeed(isActive(STATUS_BAKE) ? MAXSTEP : 0);
 
-  digitalWrite(CONVEYORPIN_EN, (baking) ? LOW : HIGH);
-  // digitalWrite(COOLINGPIN_EN, (baking) ? LOW : HIGH);
+  digitalWrite(CONVEYORPIN_EN, isActive(STATUS_BAKE) ? LOW : HIGH);
+  // digitalWrite(COOLINGPIN_EN, isActive(STATUS_BAKE) ? LOW : HIGH);
   // digitalWrite(DISPENSERPIN_EN, (dispensingActive) ? LOW : HIGH);
 
 
@@ -576,21 +580,17 @@ void handleButtons() {
 }
 
 void updateMotors() {
-  conveyor.runSpeed(); // continuous
+  conveyor.runSpeed();  // continuous
   // <disabled> fan.runSpeed();			// continuous
-  dispenser.run();	 // position-based
+  dispenser.run();  // position-based
   serviceMsg = (!(griddleReady) && updateGriddle());
 }
 
 // Update per heartbeat fxn
 void heartbeat() {
-  // Set them for next time
-  tbA = baking;
-  tkA = cancelMode;
-
-  t_bake = (tbA) ? t_bake : 0.0L;
-  t_dispense = (tbA) ? t_dispense : 0.0L;
-  t_kill = (tkA) ? t_kill : 0.0L;
+  t_bake = isActive(STATUS_BAKE) ? t_bake : 0.0L;
+  t_dispense = isActive(STATUS_BAKE) ? t_dispense : 0.0L;
+  t_kill = isActive(STATUS_CANCEL) ? t_kill : 0.0L;
 
   handleButtons();
   updateMotors();
@@ -608,40 +608,35 @@ void heartbeat() {
   	Serial.println("Buttons");
   	Serial.print("| Confirm: "); Serial.println(confirmPressed);
   	Serial.print("| Prev-Confirm: "); Serial.println(confirmPressedPrev);
-  	Serial.print("| Baking: "); Serial.println(baking);
-  	Serial.print("| Requesting: "); Serial.println(requesting);
+  	Serial.print("| Baking: "); Serial.println(isActive(STATUS_BAKE));
+  	Serial.print("| Requesting: "); Serial.println(isActive(STATUS_REQUEST));
   */
-
 }
 
 
 // The screen for asking for pancakes
 void requestScreen() {
-  dispensed = 0;
-
   // Map 0-1028 :: 1–17
   level = map(analogRead(A0), 0, 1023, 1, 17);
 
   // Choose # Pancakes Screen
-  if ((abs(level - plevel) >= 1) && !baking) {
+  if ((abs(level - plevel) >= 1) && isActive(STATUS_REQUEST)) {
     if (level < 17) {
       printMessage(center((level > 1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg)), 1);
     } else {
       printMessage(center(amt), 1);
     }
-    plevel = level; // TODO Implement Auto Mode!!!
+    plevel = level;  // TODO Implement Auto Mode :(
   }
 }
 
 
 // Runs when baking is finished
 void bakeComplete() {
-  baking = false;
+  setActive(STATUS_READY);
   dispenseState = CLOSING;
   dispenseTarget = DISPENSERCLOSE;
   setGriddleEnabled(false);
-  requesting = false;
-  ready = true;
 }
 
 // The screen that shows when bancakes are paking
@@ -724,46 +719,71 @@ void setup() {
 // Run repeatedly
 void loop() {
   // Main logic handling
-  if (cancelMode) {
-    if (!lastPrintLCD1.equals(eMsg1)) {
-      printMessage(eMsg1);
-      printMessage(eMsg2, 1);
-    }
+  if (serviceMsg && !isActive(STATUS_CANCEL)) return;
 
-    if (difftime(millis(), t_kill) >= KILLTIMEOUT) {
-      cancelMode = false;
-      clearLine();
-    }
+  switch (status) {
+    case STATUS_CANCEL:
+      if (!lastPrintLCD1.equals(eMsg1)) {
+        printMessage(eMsg1);
+        printMessage(eMsg2, 1);
+      }
 
-  } else if (!serviceMsg) {
-    if (!requesting && !baking) {
-      requesting = requestNumPancakes();
-    }
-    if (requesting && !baking) {
+      if (difftime(millis(), t_kill) >= KILLTIMEOUT) {
+        clearLine();
+        setActive(STATUS_EMPTY);
+      }
+      break;
+    
+    case STATUS_REQUEST:
       requestScreen();
-    }
-    if (baking) {
+      break;
+    
+    case STATUS_BAKE:
       bakeScreen();
-    }
-    if (ready) {
+      break;
+    
+    case STATUS_READY:
       readyScreen();
-    }
+      break;
+
+    case STATUS_EMPTY:
+      requestNumPancakes();
+      break;
+    
+    default:
+      setActive(STATUS_EMPTY);
+      break;
   }
 
   // Light handling
-  if (ready && !getLEDChanged(valid)) {
-    floodColors(valid);
-  } else if (requesting && !getLEDChanged(rqst)) {
-    floodColors(rqst);
-  } else if (baking && !getLEDChanged(warning)) {
-    floodColors(warning);
-  } else if (cancelMode && !getLEDChanged(danger)) {
-    floodColors(danger);
-  } else if (!getLEDChanged(dormant)) {
-    floodColors(dormant);
+  switch (status) {
+    case STATUS_READY:
+      if (getLEDChanged(valid)) break;
+      floodColors(valid);
+      break;
+
+    case STATUS_REQUEST:
+      if (getLEDChanged(rqst)) break;
+      floodColors(rqst);
+      break;
+
+    case STATUS_BAKE:
+      if (getLEDChanged(warning)) break;
+      floodColors(warning);
+      break;
+
+    case STATUS_CANCEL:
+      if (getLEDChanged(danger)) break;
+      floodColors(danger);
+      break;
+
+    case STATUS_EMPTY:
+      if (getLEDChanged(dormant)) break;
+      floodColors(dormant);
+      break;
   }
 
-  heartbeat(); // Updates button states & time trackers
+  heartbeat();  // Updates button states & time trackers
 
   // delay(150);
 }
