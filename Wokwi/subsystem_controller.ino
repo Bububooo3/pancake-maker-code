@@ -537,6 +537,7 @@ void handleButtons() {
         break;
 
       case STATUS_REQUEST:
+        level = map(analogRead(A0), 0, 1023, 1, 17);
         if (!heatOnBoot) setGriddleEnabled(true);
 
         t_bake = millis();
@@ -719,7 +720,7 @@ void setup() {
 // Run repeatedly
 void loop() {
   // Main logic handling
-  if (serviceMsg && !isActive(STATUS_CANCEL)) return;
+  if (serviceMsg && !isActive(STATUS_CANCEL) && !isActive(STATUS_BAKE) &&!isActive(STATUS_READY)) return;
 
   switch (status) {
     case STATUS_CANCEL:
@@ -729,8 +730,7 @@ void loop() {
       }
 
       if (difftime(millis(), t_kill) >= KILLTIMEOUT) {
-        clearLine();
-        setActive(STATUS_EMPTY);
+        requestNumPancakes();
       }
       break;
     
