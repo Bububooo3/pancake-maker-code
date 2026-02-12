@@ -730,6 +730,7 @@ void loop() {
       }
 
       if (difftime(millis(), t_kill) >= KILLTIMEOUT) {
+        clearLine();
         requestNumPancakes();
       }
       break;
