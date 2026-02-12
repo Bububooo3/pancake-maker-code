@@ -153,7 +153,7 @@ enum Status {
   STATUS_READY
 };
 
-Status status = STATUS_REQUEST;
+Status status = STATUS_EMPTY;
 
 // Fixed-Size Arrays
 const char intro[][16] = {
@@ -481,7 +481,7 @@ void dispense() {
     dispensingActive = true;
     // dispenser.moveTo(DISPENSEROPEN);
   }
-/*
+  /*
   dispenser.run();
 
   if (dispenser.distanceToGo() == 0 && dispenser.currentPosition() == DISPENSEROPEN) {
@@ -492,7 +492,7 @@ void dispense() {
     dispensingActive = false;
   }
 */
-  if (level < 17 && dispensed >= level) { // prototype-only
+  if (level < 17 && dispensed >= level) {  // prototype-only
     dispensingActive = false;
   }
 }
@@ -677,12 +677,13 @@ void setup() {
   lcd.init();
   lcd.backlight();
 
-/*
+  /*
   // LED
   led.begin();
   led.show();
-  introductionProtocol();
 */
+
+  introductionProtocol();
 
   // Serial.begin(9600);
 
@@ -698,7 +699,7 @@ void setup() {
 // Run repeatedly
 void loop() {
   // Main logic handling
-  if (serviceMsg && !isActive(STATUS_CANCEL) && !isActive(STATUS_BAKE) &&!isActive(STATUS_READY)) return;
+  if (serviceMsg && !isActive(STATUS_CANCEL) && !isActive(STATUS_BAKE) && !isActive(STATUS_READY)) return;
 
   switch (status) {
     case STATUS_CANCEL:
@@ -712,15 +713,15 @@ void loop() {
         requestNumPancakes();
       }
       break;
-    
+
     case STATUS_REQUEST:
       requestScreen();
       break;
-    
+
     case STATUS_BAKE:
       bakeScreen();
       break;
-    
+
     case STATUS_READY:
       readyScreen();
       break;
@@ -728,13 +729,13 @@ void loop() {
     case STATUS_EMPTY:
       requestNumPancakes();
       break;
-    
+
     default:
       setActive(STATUS_EMPTY);
       break;
   }
 
-/*
+  /*
   // Light handling
   switch (status) {
     case STATUS_READY:
