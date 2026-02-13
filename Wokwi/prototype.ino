@@ -387,8 +387,8 @@ const String spsMsg = "Pancakes";             // The word Pancakes
 const String spMsg = spsMsg.substring(0, 7);  // The word Pancake
 const String cspsMsg = center(spsMsg);        // So comprehensive 😍
 const String cspMsg = center(spMsg);
-const String eMsg1 = center("/   Action   \\");  // Cancel display line 1
-const String eMsg2 = center("\\ Terminated /");  // Cancel display line 2
+const String eMsg1 = center("Action");      // Cancel display line 1
+const String eMsg2 = center("Terminated");  // Cancel display line 2
 const String amt = "Auto-Mode";
 const String rMsg1 = center("Pancakes");
 const String rMsg2 = center("Ready");
@@ -426,6 +426,10 @@ void setGriddleEnabled(bool enabled) {
 // Update griddle per heartbeat w/o yielding program
 // Returns true if griddle is fully cooled or heated
 bool updateGriddle() {
+  if (isActive(STATUS_CANCEL)) {
+    return false;
+  }
+
   unsigned long elapsed = difftime(millis(), t_griddle);
 
   if (griddleEnabled) {
@@ -536,17 +540,27 @@ void handleButtons() {
 
   // Cancel button pressed
   if (cancelPressed && !cancelPressedPrev) {
-    setActive(STATUS_CANCEL);
-    setGriddleEnabled(false);
-    clearLine();
-    t_kill = millis();
+
+    if (isActive(STATUS_CANCEL)) {
+      serviceMsg = false;
+      clearLine();
+      requestNumPancakes();
+
+    } else {
+      setActive(STATUS_CANCEL);
+      setGriddleEnabled(false);
+      clearLine();
+      t_kill = millis();
+    }
   }
 
+
+
   // Baking System
-  conveyor.setSpeed(isActive(STATUS_BAKE) ? CONVEYORSTEP : 0);
+  // conveyor.setSpeed(isActive(STATUS_BAKE) ? CONVEYORSTEP : 0);
   // <disabled> fan.setSpeed(isActive(STATUS_BAKE) ? MAXSTEP : 0);
 
-  digitalWrite(CONVEYORPIN_EN, isActive(STATUS_BAKE) ? LOW : HIGH);
+  // digitalWrite(CONVEYORPIN_EN, isActive(STATUS_BAKE) ? LOW : HIGH);
   // digitalWrite(COOLINGPIN_EN, isActive(STATUS_BAKE) ? LOW : HIGH);
   // digitalWrite(DISPENSERPIN_EN, (dispensingActive) ? LOW : HIGH);
 
@@ -560,7 +574,13 @@ void updateMotors() {
   conveyor.runSpeed();  // continuous
   // <disabled> fan.runSpeed();			// continuous
   // dispenser.run();  // position-based
-  serviceMsg = (!(griddleReady) && updateGriddle());
+
+  if (isActive(STATUS_CANCEL)) {
+    serviceMsg = false;
+    return;
+  }
+
+  serviceMsg = (!(griddleReady) && updateGriddle() && (isActive(STATUS_BAKE) || isActive(STATUS_CANCEL)));
 }
 
 // Update per heartbeat fxn
@@ -698,6 +718,8 @@ void setup() {
 
 // Run repeatedly
 void loop() {
+  digitalWrite(CONVEYORPIN_EN, HIGH);
+
   // Main logic handling
   if (serviceMsg && !isActive(STATUS_CANCEL) && !isActive(STATUS_BAKE) && !isActive(STATUS_READY)) return;
 
