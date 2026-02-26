@@ -2,138 +2,67 @@
 #include <LiquidCrystal_I2C.h>
 #include <AccelStepper.h>
 #include <Wire.h>
-#include "Constants.h"
+
+#include "Animations.h"
+#include "Pins.h"
+#include "Motors.h"
+#include "Times.h"
+#include "States.h"
 
 
 
-/////////////
-// GLOBALS //
-/////////////
+/////////////////
+/// VARIABLES ///
+/////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
-// bool baking = false, requesting = false, cancelMode = false, ready = false;
-bool confirmPressedPrev = LOW, cancelPressedPrev = LOW;
-bool griddleEnabled = false, griddleReady = true, heatOnBoot = false, serviceMsg = false;
+// Booleans //
+bool confirmPressedPrev = LOW, cancelPressedPrev = LOW; // Init button states
+bool dispenseState = OPENING, dispensingActive = false; // Init dispenser states
+bool serviceMsg = false; // Init service message state
+bool griddleEnabled = false; // Init griddle state
+bool griddleReady = true; // Init griddle state
+
+bool heatOnBoot = false; // Config
+
+// Strings //
 String lastPrintLCD1 = "";
 String lastPrintLCD2 = "";
 String placeholder = "                ";
-int level = 1;
-int plevel = 0;
-int dispensed = 0;
-unsigned long t_bake, t_kill, t_griddle, t_dispense;
 
-///////////////////////////////////////////////////////////////////////////////////////////
-
-
-///////////////
-// CONSTANTS //
-///////////////
-///////////////////////////////////////////////////////////////////////////////////////////
-// Counts
-#define LEDCOUNT 8
-
-// Time Lengths (milliseconds)
-#define HEATUP 2e3
-#define COOLDOWN 2e3
-#define KILLTIMEOUT 60e3
-#define MSGWAIT 1.5e3
-#define ANIMINC 0.25e3
-#define COOKTIME 10e3
-
-// Step pulse rate (steps/second)
-#define MAXSTEP 800.0
-#define CONVEYORSTEP 800.0
-#define DISPENSERSPEED 800.0
-#define DISPENSERACCEL 400.0
-
-// Step positions (Usually 1.8°/step, 200 steps/revolution)	← <Research more based on specific motor>
-#define DISPENSEROPEN 0
-#define DISPENSERCLOSE 0
-
-// Dispenser states
-#define OPENING true
-#define CLOSING false
-
-// Buttons
-#define CONFIRMPIN 7
-#define CANCELPIN 2
-
-// Appliances
-#define LEDPIN 6
-#define GRIDPIN 8
-#define CONVEYORPIN_EN 24
-#define COOLINGPIN_EN 27
-#define DISPENSERPIN_EN 33
-
-
-// State Machine
-enum Status {
-  STATUS_EMPTY,
-  STATUS_REQUEST,
-  STATUS_BAKE,
-  STATUS_CANCEL,
-  STATUS_READY
-};
-
+// State Machine //
 Status status = STATUS_REQUEST;
 
-// Fixed-Size Arrays
-const char intro[][16] = {
-  "pancake maker",
-  "pAncake maker",
-  "paNcake maker",
-  "panCake maker",
-  "pancAke maker",
-  "pancaKe maker",
-  "pancakE maker",
-  "pancake Maker",
-  "pancake mAker",
-  "pancake maKer",
-  "pancake makEr",
-  "pancake makeR",
-  " ",
-};
+// Numbers //
+int level = 1; // Init # pancakes to make
+int plevel = 0; // Init previous # pancakes to make
+int dispensed = 0; // Init # pancakes dispensed
 
-const char heatingAnim[][16] = {
-  "heating",
-  "heating.",
-  "heating..",
-  "heating...",
-  "heating",
-};
-
-const char coolingAnim[][16] = {
-  "cooling",
-  "cooling.",
-  "cooling..",
-  "cooling...",
-  "cooling",
-};
-///////////////////////////////////////////////////////////////////////////////////////////
-
-
+unsigned long t_bake, t_kill, t_griddle, t_dispense; // Init timers
+long dispenseTarget = DISPENSERCLOSE; // Init dispenser target position
 
 
 ///////////////////////////
 // INITIALIZE COMPONENTS //
 ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
-// Initialize LCD: (RS, E, D4, D5, D6, D7)
-// Initialize LED Strip: (#LEDs, Pin, Color Mode + Signal)
-// Initialize stepper motors: (driver, STEP, DIR)
-
+// Initialize LCD: (Address, Column, Rows) 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
-Adafruit_NeoPixel led(LEDCOUNT, LEDPIN, NEO_GRB + NEO_KHZ800);
-AccelStepper conveyor(AccelStepper::DRIVER, 22, 26);
-// <disabled> AccelStepper fan(AccelStepper::DRIVER, 25, 23);
-AccelStepper dispenser(AccelStepper::DRIVER, 35, 37);
+
+// Initialize LED Strip: (#LEDs, Pin, Color Mode + Signal)
+Adafruit_NeoPixel led(8, LEDPIN, NEO_GRB + NEO_KHZ800);
+
+// Initialize stepper motors: (driver, STEP, DIR)
+AccelStepper conveyor(AccelStepper::DRIVER, CONVEYORPIN_STEP, CONVEYORPIN_DIR);
+AccelStepper dispenser(AccelStepper::DRIVER, DISPENSERPIN_STEP, DISPENSERPIN_DIR);
+/* AccelStepper fan(AccelStepper::DRIVER, 25, 23); */
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 
 
-////////////////////////////////
-// LIBRARY-SPECIFIC CONSTANTS //
-////////////////////////////////
+////////////////////////////////////
+/// LIBRARY-DEPENDENT CONSTANTS ////
+////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Colors
 #define WHITE led.Color(255, 255, 255)
@@ -158,9 +87,7 @@ const uint32_t off[8] = { OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF };
 const uint32_t valid[8] = { GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN };
 uint32_t prevLED[8] = { OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF };
 
-// Dispenser
-bool dispenseState = OPENING, dispensingActive = false;
-long dispenseTarget = DISPENSERCLOSE;
+
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
@@ -301,14 +228,15 @@ unsigned long difftime(long t1, long t2) {
 /////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////
 // EXTRA INTERFACE CONSTANTS (for optimization, convenience & such)
+const String spMsg = "Pancake";  // Word to show for a single pancake
+const String spsMsg = spMsg + "s"; // Word to show for >1 pancakes
+const String amt = "Auto-Mode"; // Word to show for auto mode
+
 const String bMsg = center("Baking");
-const String spsMsg = "Pancakes";             // The word Pancakes
-const String spMsg = spsMsg.substring(0, 7);  // The word Pancake
-const String cspsMsg = center(spsMsg);        // So comprehensive 😍
-const String cspMsg = center(spMsg);
-const String eMsg1 = center("/   Action   \\");  // Cancel display line 1
-const String eMsg2 = center("\\ Terminated /");  // Cancel display line 2
-const String amt = "Auto-Mode";
+
+const String eMsg1 = center("Action");  // Cancel display line 1
+const String eMsg2 = center("Terminated");  // Cancel display line 2
+
 const String rMsg1 = center("Pancakes");
 const String rMsg2 = center("Ready");
 
@@ -486,23 +414,6 @@ void heartbeat() {
 
   handleButtons();
   updateMotors();
-
-  /*
-  	"I'll just use a debugger," I said with joys...
-  	I was then shot 57 times
-
-    Serial.println("======================");
-    Serial.println("Timers");
-    Serial.print("| B: "); Serial.println(t_bake);
-    Serial.print("| T: "); Serial.println(t_kill);
-    Serial.print("| C: "); Serial.println(millis());
-    Serial.println("======================");
-  	Serial.println("Buttons");
-  	Serial.print("| Confirm: "); Serial.println(confirmPressed);
-  	Serial.print("| Prev-Confirm: "); Serial.println(confirmPressedPrev);
-  	Serial.print("| Baking: "); Serial.println(isActive(STATUS_BAKE));
-  	Serial.print("| Requesting: "); Serial.println(isActive(STATUS_REQUEST));
-  */
 }
 
 
