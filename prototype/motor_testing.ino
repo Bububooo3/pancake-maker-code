@@ -17,29 +17,18 @@ void setup() {
   // Set the maximum speed in steps per second:
   stepper.setMaxSpeed(1000);
   stepper.setAcceleration(200);
-  // pinMode(enPin, OUTPUT);
-  // digitalWrite(enPin, LOW);
   pinMode(pushPin, INPUT_PULLUP);
   Serial.begin(9600);
-  // pinMode(stepPin, OUTPUT);
-  // pinMode(dirPin, OUTPUT);
 }
 
 void loop() {
-  // stepper.setCurrentPosition(0);
-  // stepper.setSpeed(800);
-
   for (int x = 0; x < stepsPerRevolution; x++) {
     if (digitalRead(pushPin) == LOW) {
-      stepper.SetSpeed(400);
-      // digitalWrite(stepPin, HIGH);
-      // delayMicroseconds(500);
-      // digitalWrite(stepPin, LOW);
-      // delayMicroseconds(500);
+      stepper.setSpeed(800);
 
       Serial.println("Pressed");
     } else {
-      stepper.SetSpeed(0);
+      stepper.setSpeed(0);
 
       Serial.println("Not Pressed");
     }
