@@ -16,13 +16,12 @@
 /////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Booleans //
-bool confirmPressedPrev = LOW, cancelPressedPrev = LOW; // Init button states
-bool dispenseState = OPENING, dispensingActive = false; // Init dispenser states
-bool serviceMsg = false; // Init service message state
-bool griddleEnabled = false; // Init griddle state
-bool griddleReady = true; // Init griddle state
-
-bool heatOnBoot = false; // Config
+bool confirmPressedPrev = LOW, cancelPressedPrev = LOW;  // Init button states
+bool dispenseState = OPENING, dispensingActive = false;  // Init dispenser states
+bool serviceMsg = false;                                 // Init service message state
+bool griddleEnabled = false;                             // Init griddle state
+bool griddleReady = true;                                // Init griddle state
+bool heatOnBoot = false;                                 // Config
 
 // Strings //
 String lastPrintLCD1 = "";
@@ -33,19 +32,19 @@ String placeholder = "                ";
 Status status = STATUS_REQUEST;
 
 // Numbers //
-int level = 1; // Init # pancakes to make
-int plevel = 0; // Init previous # pancakes to make
-int dispensed = 0; // Init # pancakes dispensed
+int level = 1;      // Init # pancakes to make
+int plevel = 0;     // Init previous # pancakes to make
+int dispensed = 0;  // Init # pancakes dispensed
 
-unsigned long t_bake, t_kill, t_griddle, t_dispense; // Init timers
-long dispenseTarget = DISPENSERCLOSE; // Init dispenser target position
+unsigned long t_bake, t_kill, t_griddle, t_dispense;  // Init timers
+long dispenseTarget = DISPENSERCLOSE;                 // Init dispenser target position
 
 
-///////////////////////////
-// INITIALIZE COMPONENTS //
-///////////////////////////
+//////////////////
+/// COMPONENTS ///
+//////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
-// Initialize LCD: (Address, Column, Rows) 
+// Initialize LCD: (Address, Column, Rows)
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 // Initialize LED Strip: (#LEDs, Pin, Color Mode + Signal)
@@ -69,13 +68,11 @@ AccelStepper dispenser(AccelStepper::DRIVER, DISPENSERPIN_STEP, DISPENSERPIN_DIR
 #define RED led.Color(255, 0, 0)
 #define GREEN led.Color(0, 255, 0)
 #define BLUE led.Color(0, 0, 255)
-
 #define YELLOW led.Color(255, 255, 0)
 #define CYAN led.Color(0, 255, 255)
 #define MAGENTA led.Color(255, 0, 255)
 #define ORANGE led.Color(255, 165, 0)
 #define PURPLE led.Color(128, 0, 128)
-
 #define OFF 0
 
 // Presets
@@ -86,8 +83,6 @@ const uint32_t dormant[8] = { BLUE, WHITE, BLUE, WHITE, BLUE, WHITE, BLUE, WHITE
 const uint32_t off[8] = { OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF };
 const uint32_t valid[8] = { GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN };
 uint32_t prevLED[8] = { OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF };
-
-
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
@@ -228,13 +223,13 @@ unsigned long difftime(long t1, long t2) {
 /////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////
 // EXTRA INTERFACE CONSTANTS (for optimization, convenience & such)
-const String spMsg = "Pancake";  // Word to show for a single pancake
-const String spsMsg = spMsg + "s"; // Word to show for >1 pancakes
-const String amt = "Auto-Mode"; // Word to show for auto mode
+const String spMsg = "Pancake";     // Word to show for a single pancake
+const String spsMsg = spMsg + "s";  // Word to show for >1 pancakes
+const String amt = "Auto-Mode";     // Word to show for auto mode
 
 const String bMsg = center("Baking");
 
-const String eMsg1 = center("Action");  // Cancel display line 1
+const String eMsg1 = center("Action");      // Cancel display line 1
 const String eMsg2 = center("Terminated");  // Cancel display line 2
 
 const String rMsg1 = center("Pancakes");
@@ -308,7 +303,6 @@ void introductionProtocol() {
   printMessage(center("By Jesuit HS"), 1);
   delay(MSGWAIT);
   clearLine();
-
 
   setFanPower(1.0f);
 
@@ -388,11 +382,6 @@ void handleButtons() {
   // Baking System
   conveyor.setSpeed(isActive(STATUS_BAKE) ? CONVEYORSTEP : 0);
   // <disabled> fan.setSpeed(isActive(STATUS_BAKE) ? MAXSTEP : 0);
-
-  digitalWrite(CONVEYORPIN_EN, isActive(STATUS_BAKE) ? LOW : HIGH);
-  // digitalWrite(COOLINGPIN_EN, isActive(STATUS_BAKE) ? LOW : HIGH);
-  // digitalWrite(DISPENSERPIN_EN, (dispensingActive) ? LOW : HIGH);
-
 
   // Store state
   confirmPressedPrev = confirmPressed;
@@ -495,9 +484,6 @@ void setup() {
   pinMode(CANCELPIN, INPUT_PULLUP);
   pinMode(LEDPIN, OUTPUT);
   pinMode(GRIDPIN, OUTPUT);
-  pinMode(CONVEYORPIN_EN, OUTPUT);
-  pinMode(COOLINGPIN_EN, OUTPUT);
-  pinMode(DISPENSERPIN_EN, OUTPUT);
 
   // LCD
   lcd.init();
@@ -522,7 +508,7 @@ void setup() {
 // Run repeatedly
 void loop() {
   // Main logic handling
-  if (serviceMsg && !isActive(STATUS_CANCEL) && !isActive(STATUS_BAKE) &&!isActive(STATUS_READY)) return;
+  if (serviceMsg && !isActive(STATUS_CANCEL) && !isActive(STATUS_BAKE) && !isActive(STATUS_READY)) return;
 
   switch (status) {
     case STATUS_CANCEL:
@@ -536,15 +522,15 @@ void loop() {
         requestNumPancakes();
       }
       break;
-    
+
     case STATUS_REQUEST:
       requestScreen();
       break;
-    
+
     case STATUS_BAKE:
       bakeScreen();
       break;
-    
+
     case STATUS_READY:
       readyScreen();
       break;
@@ -552,7 +538,7 @@ void loop() {
     case STATUS_EMPTY:
       requestNumPancakes();
       break;
-    
+
     default:
       setActive(STATUS_EMPTY);
       break;
@@ -587,6 +573,4 @@ void loop() {
   }
 
   heartbeat();  // Updates button states & time trackers
-
-  // delay(150);
 }
