@@ -22,6 +22,8 @@ bool serviceMsg = false;                                 // Init service message
 bool griddleEnabled = false;                             // Init griddle state
 bool griddleReady = true;                                // Init griddle state
 bool heatOnBoot = false;                                 // Config
+bool confirmStable = LOW;
+bool cancelStable = LOW;
 
 // Strings //
 String lastPrintLCD1 = "";
@@ -36,8 +38,8 @@ int level = 1;      // Init # pancakes to make
 int plevel = 0;     // Init previous # pancakes to make
 int dispensed = 0;  // Init # pancakes dispensed
 
-unsigned long t_bake, t_kill, t_griddle, t_dispense;  // Init timers
-long dispenseTarget = DISPENSERCLOSE;                 // Init dispenser target position
+unsigned long t_bake, t_kill, t_griddle, t_dispense, t_confirmDebounce, t_cancelDebounce;  // Init timers
+long dispenseTarget = DISPENSERCLOSE;                                                      // Init dispenser target position
 
 
 //////////////////
@@ -133,8 +135,11 @@ bool printMessage(String msg, int line = 0) {
 bool clearLine(int lvl = -1) {
   if (lvl < 0) {
     lcd.clear();
+    lastPrintLCD1 = "";
+    lastPrintLCD2 = "";
     return true;
   }
+
   lvl = constrain(lvl, 0, 1);
   printMessage(placeholder, lvl);
   return true;
@@ -142,9 +147,9 @@ bool clearLine(int lvl = -1) {
 
 
 // Return whether the previous LED is the same as the current one
-bool getLEDChanged(uint32_t a[]) {
+bool getLEDUnchanged(uint32_t a[]) {
   return (
-    prevLED[0] == a[0] && prevLED[1] == a[1] && prevLED[2] == a[2] && prevLED[3] == a[3] && prevLED[4] == a[4] && prevLED[5] == a[5]);
+    prevLED[0] == a[0] && prevLED[1] == a[1] && prevLED[2] == a[2] && prevLED[3] == a[3] && prevLED[4] == a[4] && prevLED[5] == a[5] && prevLED[6] == a[6] && prevLED[7] == a[7]);
 }
 
 void setLEDChanged(uint32_t a[]) {
@@ -167,8 +172,8 @@ bool setColors(int a = OFF, int b = OFF, int c = OFF, int d = OFF, int e = OFF, 
   led.setPixelColor(3, d);
   led.setPixelColor(4, e);
   led.setPixelColor(5, f);
-  led.setPixelColor(6, e);
-  led.setPixelColor(7, f);
+  led.setPixelColor(6, g);
+  led.setPixelColor(7, h);
 
   uint32_t temp[8] = { a, b, c, d, e, f, g, h };
   setLEDChanged(temp);
@@ -180,9 +185,6 @@ bool setColors(int a = OFF, int b = OFF, int c = OFF, int d = OFF, int e = OFF, 
 
 // Set LED strip colors using a preset
 bool floodColors(const uint32_t z[8]) {
-  if (getArraySize(z) < 6) {
-    return false;
-  }
   setColors(z[0], z[1], z[2], z[3], z[4], z[5], z[6], z[7]);
   return true;
 }
@@ -337,8 +339,29 @@ void dispense() {
 
 // Handle the confirm/cancel button logic
 void handleButtons() {
-  bool confirmPressed = (digitalRead(CONFIRMPIN) == LOW);
-  bool cancelPressed = (digitalRead(CANCELPIN) == LOW);
+  bool rawConfirm = (digitalRead(CONFIRMPIN) == LOW);
+  bool rawCancel = (digitalRead(CANCELPIN) == LOW);
+
+  unsigned long now = millis();
+
+  // CONFIRM DEBOUNCE
+  if (rawConfirm != confirmStable) {
+    if (now - t_confirmDebounce >= DEBOUNCE) {
+      confirmStable = rawConfirm;
+      t_confirmDebounce = now;  // Reset only after committing
+    }
+  }
+
+  // CANCEL DEBOUNCE
+  if (rawCancel != cancelStable) {
+    if (now - t_cancelDebounce >= DEBOUNCE) {
+      cancelStable = rawCancel;
+      t_cancelDebounce = now;  // Reset only after committing
+    }
+  }
+
+  bool confirmPressed = confirmStable;
+  bool cancelPressed = cancelStable;
 
   // Confirm button pressed
   if (!confirmPressedPrev && confirmPressed) {
@@ -353,8 +376,8 @@ void handleButtons() {
         level = map(analogRead(A0), 0, 1023, 1, 17);
         if (!heatOnBoot) setGriddleEnabled(true);
 
-        t_bake = millis();
-        t_dispense = millis();
+        t_bake = now;
+        t_dispense = now;
 
         dispensingActive = false;
         dispenseState = OPENING;
@@ -547,27 +570,27 @@ void loop() {
   // Light handling
   switch (status) {
     case STATUS_READY:
-      if (getLEDChanged(valid)) break;
+      if (getLEDUnchanged(valid)) break;
       floodColors(valid);
       break;
 
     case STATUS_REQUEST:
-      if (getLEDChanged(rqst)) break;
+      if (getLEDUnchanged(rqst)) break;
       floodColors(rqst);
       break;
 
     case STATUS_BAKE:
-      if (getLEDChanged(warning)) break;
+      if (getLEDUnchanged(warning)) break;
       floodColors(warning);
       break;
 
     case STATUS_CANCEL:
-      if (getLEDChanged(danger)) break;
+      if (getLEDUnchanged(danger)) break;
       floodColors(danger);
       break;
 
     case STATUS_EMPTY:
-      if (getLEDChanged(dormant)) break;
+      if (getLEDUnchanged(dormant)) break;
       floodColors(dormant);
       break;
   }
