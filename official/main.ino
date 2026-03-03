@@ -21,10 +21,12 @@ bool dispensingActive = false;                           // Init dispenser state
 bool serviceMsg = false;                                 // Init service message state
 bool griddleEnabled = false;                             // Init griddle state
 bool griddleReady = true;                                // Init griddle state
-bool confirmStable = LOW;
-bool cancelStable = LOW;
-bool tkA = false;
-bool heatOnBoot = false;  // Config
+bool griddleReadyPrev = true;                            // exactly what it sounds like
+bool confirmStable = LOW;                                // more reliable input
+bool cancelStable = LOW;                                 // more reliable input
+bool tkA = false;                                        // is kill mode active
+bool dispenserHoming = false;                            // is dispenser homing
+bool heatOnBoot = false;                                 // Config
 
 // Strings //
 String lastPrintLCD1 = "";
@@ -237,7 +239,7 @@ const String eMsg2 = center("Terminated");  // Cancel display line 2
 const String rMsg1 = center("Pancakes");
 const String rMsg2 = center("Ready");
 
-void bakeComplete();
+void bakeComplete();  // Just in case
 
 // QoL method
 bool isActive(Status check) {
@@ -273,7 +275,7 @@ void setGriddleEnabled(bool enabled) {
 // Returns true if griddle is fully cooled or heated
 bool updateGriddle() {
   unsigned long elapsed = difftime(millis(), t_griddle);
-  bool canWriteLCD = !isActive(STATUS_BAKE) && !isActive(STATUS_READY);
+  bool canWriteLCD = !isActive(STATUS_READY) && !isActive(STATUS_CANCEL);
 
   if (griddleEnabled) {
     if (canWriteLCD) {
@@ -282,6 +284,7 @@ bool updateGriddle() {
     }
     if (!griddleReady && elapsed >= HEATUP) {
       griddleReady = true;
+      if (isActive(STATUS_BAKE)) t_dispense = millis();
       return true;
     }
   } else {
@@ -323,11 +326,19 @@ void introductionProtocol() {
 // For handling during cancel state or errors
 void homeDispenser() {
   dispensingActive = false;
+  dispenserHoming = true;
   dispenser.moveTo(DISPENSERCLOSE);
 }
 
 // Dispense pancakes fxn
 bool dispense() {
+  if (dispenserHoming) {
+    if (dispenser.distanceToGo() == 0 && dispenser.currentPosition() == DISPENSERCLOSE) {
+      dispenserHoming = false;
+    }
+    return false;
+  }
+
   if (!dispensingActive) return false;
 
   if (dispenser.distanceToGo() == 0) {
@@ -376,6 +387,8 @@ void handleButtons() {
         t_kill = 0;
         tkA = false;
         clearLine();
+        printMessage(center("[please wait]"));
+        plevel = -1;
         break;
 
       case STATUS_REQUEST:
@@ -384,8 +397,9 @@ void handleButtons() {
 
         t_bake = now;
         t_dispense = now;
-
+        griddleReadyPrev = false;
         dispensingActive = false;
+        dispenserHoming = false;
         dispensed = 0;
 
         clearLine();
@@ -422,20 +436,29 @@ void updateMotors() {
   conveyor.runSpeed();
   bool cycleComplete = dispense();
   dispenser.run();
-  if (!griddleReady) updateGriddle();
+
+  if (!griddleReady) {
+    updateGriddle();
+    griddleReadyPrev = false;
+  } else {
+    griddleReadyPrev = true;
+  }
+
   serviceMsg = !griddleReady;
 
-  if (isActive(STATUS_BAKE) && cycleComplete) {
+  if (!isActive(STATUS_BAKE)) return;
+
+  if (cycleComplete) {
     dispensed++;
     t_dispense = millis();
-    if (level < 17 && dispensed >= level) bakeComplete();
+    if (level < 17 && dispensed >= level) {
+      bakeComplete();
+      return;
+    }
   }
 
-  if (isActive(STATUS_BAKE) && level == 17 && difftime(millis(), t_bake) >= AUTOTIMEOUT) {
-    bakeComplete();
-  }
+  if (level == 17 && difftime(millis(), t_bake) >= AUTOTIMEOUT) bakeComplete();
 }
-
 
 // Update per heartbeat fxn
 void heartbeat() {
@@ -450,7 +473,7 @@ void heartbeat() {
 
 // The screen for asking for pancakes
 void requestScreen() {
-  // Map 0-1028 :: 1–17
+  // Map 0-1023 :: 1–17
   level = map(analogRead(A0), 0, 1023, 1, 17);
 
   // Choose # Pancakes Screen
@@ -460,7 +483,8 @@ void requestScreen() {
     } else {
       printMessage(center(amt), 1);
     }
-    plevel = level;  // TODO Implement Auto Mode :(
+
+    plevel = level;
   }
 }
 
@@ -473,10 +497,15 @@ void bakeComplete() {
 
 // Display while baking
 void bakeScreen() {
+  if (!griddleReadyPrev) {
+    printMessage(center("Heating..."));
+    return;
+  }
+
   printMessage(bMsg);
   printMessage((level < 17) ? center((level > 1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg)) : center(amt), 1);
 
-  if (griddleReady && !dispensingActive && difftime(millis(), t_dispense) >= COOKTIME) {
+  if (!dispensingActive && !dispenserHoming && difftime(millis(), t_dispense) >= COOKTIME) {
     dispensingActive = true;
     dispenser.moveTo(DISPENSEROPEN);
   }
@@ -484,13 +513,8 @@ void bakeScreen() {
 
 // Display for when the pancakes are ready
 void readyScreen() {
-  if (!lastPrintLCD1.equals(rMsg1)) {
-    printMessage(rMsg1);
-  }
-
-  if (!lastPrintLCD2.equals(rMsg2)) {
-    printMessage(rMsg2, 1);
-  }
+  printMessage(rMsg1);
+  printMessage(rMsg2, 1);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -526,6 +550,14 @@ void setup() {
   // <disabled> fan.setMaxSpeed(MAXSTEP);
   dispenser.setMaxSpeed(800);
   dispenser.setAcceleration(400);
+
+  dispenser.moveTo(DISPENSERCLOSE);
+  dispenserHoming = true;
+  while (abs(dispenser.distanceToGo()) > 1) dispenser.run();
+  dispenserHoming = false;
+
+  // Initialize griddle bc of heatOnBoot
+  griddleReadyPrev = griddleReady;
 }
 
 
@@ -538,10 +570,8 @@ void loop() {
 
   switch (status) {
     case STATUS_CANCEL:
-      if (!lastPrintLCD1.equals(eMsg1)) {
-        printMessage(eMsg1);
-        printMessage(eMsg2, 1);
-      }
+      printMessage(eMsg1);
+      printMessage(eMsg2, 1);
 
       if (tkA && difftime(millis(), t_kill) >= KILLTIMEOUT) {
         tkA = false;
