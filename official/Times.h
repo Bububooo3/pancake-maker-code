@@ -16,4 +16,6 @@ const int COOKTIME = 10e3;  // Time for one pancake on the belt
 
 const int DEBOUNCE = 3e3;  // Time before buttons sink input again after pressed
 
+const int AUTOTIMEOUT = COOKTIME * 30; // It is what it sounds like
+
 #endif
