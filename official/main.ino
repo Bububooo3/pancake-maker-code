@@ -17,13 +17,14 @@
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Booleans //
 bool confirmPressedPrev = LOW, cancelPressedPrev = LOW;  // Init button states
-bool dispenseState = OPENING, dispensingActive = false;  // Init dispenser states
+bool dispensingActive = false;                           // Init dispenser states
 bool serviceMsg = false;                                 // Init service message state
 bool griddleEnabled = false;                             // Init griddle state
 bool griddleReady = true;                                // Init griddle state
-bool heatOnBoot = false;                                 // Config
 bool confirmStable = LOW;
 bool cancelStable = LOW;
+bool tkA = false;
+bool heatOnBoot = false;  // Config
 
 // Strings //
 String lastPrintLCD1 = "";
@@ -39,7 +40,6 @@ int plevel = 0;     // Init previous # pancakes to make
 int dispensed = 0;  // Init # pancakes dispensed
 
 unsigned long t_bake, t_kill, t_griddle, t_dispense, t_confirmDebounce, t_cancelDebounce;  // Init timers
-long dispenseTarget = DISPENSERCLOSE;                                                      // Init dispenser target position
 
 
 //////////////////
@@ -212,8 +212,8 @@ void setFanPower(float i) {
 
 
 // Get the net difference between these two times in milliseconds
-unsigned long difftime(long t1, long t2) {
-  return abs(t2 - t1);
+unsigned long difftime(unsigned long t1, unsigned long t2) {
+  return (t2 >= t1) ? (t2 - t1) : (0xFFFFFFFFUL - t1 + t2 + 1);  // ~49-day lifetime of accuracy
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -236,6 +236,8 @@ const String eMsg2 = center("Terminated");  // Cancel display line 2
 
 const String rMsg1 = center("Pancakes");
 const String rMsg2 = center("Ready");
+
+void bakeComplete();
 
 // QoL method
 bool isActive(Status check) {
@@ -271,27 +273,27 @@ void setGriddleEnabled(bool enabled) {
 // Returns true if griddle is fully cooled or heated
 bool updateGriddle() {
   unsigned long elapsed = difftime(millis(), t_griddle);
+  bool canWriteLCD = !isActive(STATUS_BAKE) && !isActive(STATUS_READY);
 
   if (griddleEnabled) {
-    // Heatup anim
-    int frame = static_cast<int>(elapsed / ANIMINC) % getArraySize(heatingAnim);
-    printMessage(center(heatingAnim[frame]), 1);
-
+    if (canWriteLCD) {
+      int frame = static_cast<int>(elapsed / ANIMINC) % getArraySize(heatingAnim);
+      printMessage(center(heatingAnim[frame]), 1);
+    }
     if (!griddleReady && elapsed >= HEATUP) {
       griddleReady = true;
       return true;
     }
   } else {
-    // Cooldown anim
-    int frame = static_cast<int>(elapsed / ANIMINC) % getArraySize(coolingAnim);
-    printMessage(center(coolingAnim[frame]), 1);
-
+    if (canWriteLCD) {
+      int frame = static_cast<int>(elapsed / ANIMINC) % getArraySize(coolingAnim);
+      printMessage(center(coolingAnim[frame]), 1);
+    }
     if (!griddleReady && elapsed >= COOLDOWN) {
       griddleReady = true;
       return true;
     }
   }
-
   return false;
 }
 
@@ -318,22 +320,25 @@ void introductionProtocol() {
 }
 
 
+// For handling during cancel state or errors
+void homeDispenser() {
+  dispensingActive = false;
+  dispenser.moveTo(DISPENSERCLOSE);
+}
+
 // Dispense pancakes fxn
-void dispense() {
-  if (!dispensingActive) {
-    dispensingActive = true;
-    dispenser.moveTo(DISPENSEROPEN);
-  }
+bool dispense() {
+  if (!dispensingActive) return false;
 
-  dispenser.run();
-
-  if (dispenser.distanceToGo() == 0 && dispenser.currentPosition() == DISPENSEROPEN) {
-    dispenser.moveTo(DISPENSERCLOSE);
+  if (dispenser.distanceToGo() == 0) {
+    if (dispenser.currentPosition() == DISPENSEROPEN) {
+      dispenser.moveTo(DISPENSERCLOSE);
+    } else if (dispenser.currentPosition() == DISPENSERCLOSE) {
+      dispensingActive = false;
+      return true;
+    }
   }
-
-  if (dispenser.distanceToGo() == 0 && dispenser.currentPosition() == DISPENSERCLOSE) {
-    dispensingActive = false;
-  }
+  return false;
 }
 
 
@@ -369,6 +374,7 @@ void handleButtons() {
       case STATUS_CANCEL:
         setActive(STATUS_REQUEST);
         t_kill = 0;
+        tkA = false;
         clearLine();
         break;
 
@@ -380,8 +386,6 @@ void handleButtons() {
         t_dispense = now;
 
         dispensingActive = false;
-        dispenseState = OPENING;
-        dispenseTarget = DISPENSEROPEN;
         dispensed = 0;
 
         clearLine();
@@ -398,8 +402,10 @@ void handleButtons() {
   if (cancelPressed && !cancelPressedPrev) {
     setActive(STATUS_CANCEL);
     setGriddleEnabled(false);
+    homeDispenser();
     clearLine();
     t_kill = millis();
+    tkA = true;
   }
 
   // Baking System
@@ -411,18 +417,31 @@ void handleButtons() {
   cancelPressedPrev = cancelPressed;
 }
 
+
 void updateMotors() {
-  conveyor.runSpeed();  // continuous
-  // <disabled> fan.runSpeed();			// continuous
-  dispenser.run();  // position-based
-  serviceMsg = (!(griddleReady) && updateGriddle());
+  conveyor.runSpeed();
+  bool cycleComplete = dispense();
+  dispenser.run();
+  if (!griddleReady) updateGriddle();
+  serviceMsg = !griddleReady;
+
+  if (isActive(STATUS_BAKE) && cycleComplete) {
+    dispensed++;
+    t_dispense = millis();
+    if (level < 17 && dispensed >= level) bakeComplete();
+  }
+
+  if (isActive(STATUS_BAKE) && level == 17 && difftime(millis(), t_bake) >= AUTOTIMEOUT) {
+    bakeComplete();
+  }
 }
+
 
 // Update per heartbeat fxn
 void heartbeat() {
-  t_bake = isActive(STATUS_BAKE) ? t_bake : 0.0L;
-  t_dispense = isActive(STATUS_BAKE) ? t_dispense : 0.0L;
-  t_kill = isActive(STATUS_CANCEL) ? t_kill : 0.0L;
+  t_bake = isActive(STATUS_BAKE) ? t_bake : 0UL;
+  t_dispense = isActive(STATUS_BAKE) ? t_dispense : 0UL;
+  t_kill = (isActive(STATUS_CANCEL) && tkA) ? t_kill : 0UL;
 
   handleButtons();
   updateMotors();
@@ -449,37 +468,19 @@ void requestScreen() {
 // Runs when baking is finished
 void bakeComplete() {
   setActive(STATUS_READY);
-  dispenseState = CLOSING;
-  dispenseTarget = DISPENSERCLOSE;
   setGriddleEnabled(false);
 }
 
-// The screen that shows when bancakes are paking
+// Display while baking
 void bakeScreen() {
-  if (!lastPrintLCD1.equals(bMsg)) {
-    printMessage(bMsg);
-    printMessage((level < 17) ? center(((level > 1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg))) : spsMsg, 1);
+  printMessage(bMsg);
+  printMessage((level < 17) ? center((level > 1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg)) : center(amt), 1);
 
-  } else {
-    if (griddleReady) {
-      if (difftime(millis(), t_dispense) >= COOKTIME && !dispensingActive) {
-        dispense();
-        t_dispense = millis();
-        dispensed++;
-      }
-    }
-
-    auto temporaryPrint = (level < 17) ? center(((level > 1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg))) : spsMsg;
-    if (!lastPrintLCD2.equals(temporaryPrint)) {
-      printMessage(temporaryPrint, 1);
-    }
-
-    if (dispensed >= level) {
-      bakeComplete();
-    }
+  if (griddleReady && !dispensingActive && difftime(millis(), t_dispense) >= COOKTIME) {
+    dispensingActive = true;
+    dispenser.moveTo(DISPENSEROPEN);
   }
 }
-
 
 // Display for when the pancakes are ready
 void readyScreen() {
@@ -530,6 +531,8 @@ void setup() {
 
 // Run repeatedly
 void loop() {
+  heartbeat();
+
   // Main logic handling
   if (serviceMsg && !isActive(STATUS_CANCEL) && !isActive(STATUS_BAKE) && !isActive(STATUS_READY)) return;
 
@@ -540,7 +543,8 @@ void loop() {
         printMessage(eMsg2, 1);
       }
 
-      if (difftime(millis(), t_kill) >= KILLTIMEOUT) {
+      if (tkA && difftime(millis(), t_kill) >= KILLTIMEOUT) {
+        tkA = false;
         clearLine();
         requestNumPancakes();
       }
@@ -594,6 +598,4 @@ void loop() {
       floodColors(dormant);
       break;
   }
-
-  heartbeat();  // Updates button states & time trackers
 }
