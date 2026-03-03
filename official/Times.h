@@ -2,20 +2,19 @@
 #define TIMES_H
 
 // (Miliseconds)
-const int HEATUP = 2e3;  // Time it takes for the griddle to turn on
+const unsigned long HEATUP = 2e3;  // Time it takes for the griddle to turn on
 
-const int COOLDOWN = 2e3;  // Time it takes for the griddle to turn off
+const unsigned long COOLDOWN = 2e3;  // Time it takes for the griddle to turn off
 
-const int KILLTIMEOUT = 60e3;  // Maximum time allowed to remain in terminated state
+const unsigned long KILLTIMEOUT = 60e3;  // Maximum time allowed to remain in terminated state
 
-const int MSGWAIT = 1.5e3;  // Intro message display time
+const unsigned long MSGWAIT = 1.5e3;  // Intro message display time
 
-const int ANIMINC = 0.25e3;  // Animation speed
+const unsigned long ANIMINC = 0.25e3;  // Animation speed
 
-const int COOKTIME = 10e3;  // Time for one pancake on the belt
+const unsigned long COOKTIME = 10e3;  // Time for one pancake on the belt
 
-const int DEBOUNCE = 3e3;  // Time before buttons sink input again after pressed
+const unsigned long DEBOUNCE = .025e3;  // Time before buttons sink input again after pressed
 
-const int AUTOTIMEOUT = COOKTIME * 30; // It is what it sounds like
-
+const unsigned long AUTOTIMEOUT = COOKTIME * 30; // It is what it sounds like
 #endif
