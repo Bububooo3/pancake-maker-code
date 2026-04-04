@@ -437,7 +437,7 @@ void updateMotors() {
   bool cycleComplete = dispense();
   dispenser.run();
 
-  if (!griddleReady) {
+  if (!(griddleReady && elapsed >= HEATUP)) {
     updateGriddle();
     griddleReadyPrev = false;
   } else {
@@ -564,7 +564,35 @@ void setup() {
 // Run repeatedly
 void loop() {
   heartbeat();
+  
+  // Light handling
+  switch (status) {
+    case STATUS_READY:
+      if (getLEDUnchanged(valid)) break;
+      floodColors(valid);
+      break;
 
+    case STATUS_REQUEST:
+      if (getLEDUnchanged(rqst)) break;
+      floodColors(rqst);
+      break;
+
+    case STATUS_BAKE:
+      if (getLEDUnchanged(warning)) break;
+      floodColors(warning);
+      break;
+
+    case STATUS_CANCEL:
+      if (getLEDUnchanged(danger)) break;
+      floodColors(danger);
+      break;
+
+    case STATUS_EMPTY:
+      if (getLEDUnchanged(dormant)) break;
+      floodColors(dormant);
+      break;
+  }
+  
   // Main logic handling
   if (serviceMsg && !isActive(STATUS_CANCEL) && !isActive(STATUS_BAKE) && !isActive(STATUS_READY)) return;
 
@@ -598,34 +626,6 @@ void loop() {
 
     default:
       setActive(STATUS_EMPTY);
-      break;
-  }
-
-  // Light handling
-  switch (status) {
-    case STATUS_READY:
-      if (getLEDUnchanged(valid)) break;
-      floodColors(valid);
-      break;
-
-    case STATUS_REQUEST:
-      if (getLEDUnchanged(rqst)) break;
-      floodColors(rqst);
-      break;
-
-    case STATUS_BAKE:
-      if (getLEDUnchanged(warning)) break;
-      floodColors(warning);
-      break;
-
-    case STATUS_CANCEL:
-      if (getLEDUnchanged(danger)) break;
-      floodColors(danger);
-      break;
-
-    case STATUS_EMPTY:
-      if (getLEDUnchanged(dormant)) break;
-      floodColors(dormant);
       break;
   }
 }
