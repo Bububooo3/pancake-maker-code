@@ -149,12 +149,12 @@ bool clearLine(int lvl = -1) {
 
 
 // Return whether the previous LED is the same as the current one
-bool getLEDUnchanged(uint32_t a[]) {
+bool getLEDUnchanged(const uint32_t a[]) {
   return (
     prevLED[0] == a[0] && prevLED[1] == a[1] && prevLED[2] == a[2] && prevLED[3] == a[3] && prevLED[4] == a[4] && prevLED[5] == a[5] && prevLED[6] == a[6] && prevLED[7] == a[7]);
 }
 
-void setLEDChanged(uint32_t a[]) {
+void setLEDChanged(const uint32_t a[]) {
   prevLED[0] = a[0];
   prevLED[1] = a[1];
   prevLED[2] = a[2];
