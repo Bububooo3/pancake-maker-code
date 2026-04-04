@@ -437,7 +437,7 @@ void updateMotors() {
   bool cycleComplete = dispense();
   dispenser.run();
 
-  if (!(griddleReady && elapsed >= HEATUP)) {
+  if (!griddleReady) {
     updateGriddle();
     griddleReadyPrev = false;
   } else {
