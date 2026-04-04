@@ -553,7 +553,7 @@ void setup() {
 
   dispenser.moveTo(DISPENSERCLOSE);
   dispenserHoming = true;
-  while (abs(dispenser.distanceToGo()) > 1) dispenser.run();
+  while (dispenser.distanceToGo() != 0) dispenser.run();
   dispenserHoming = false;
 
   // Initialize griddle bc of heatOnBoot
