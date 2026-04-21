@@ -6,6 +6,8 @@ const int MAXSTEP = 800.0;
 
 const int CONVEYORSTEP = 800.0;
 
+const bool CONVEYORINVERT = true;
+
 const int DISPENSERSPEED = 800.0;
 
 const int DISPENSERACCEL = 400.0;
