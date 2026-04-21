@@ -479,7 +479,7 @@ void requestScreen() {
   // Choose # Pancakes Screen
   if ((abs(level - plevel) >= 1) && isActive(STATUS_REQUEST)) {
     if (level < 17) {
-      printMessage(center((level > 1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg)), 1);
+      printMessage(center((level > 1) ? (String(level * 2) + " " + spsMsg) : (String(level * 2) + " " + spMsg)), 1);
     } else {
       printMessage(center(amt), 1);
     }
@@ -547,6 +547,7 @@ void setup() {
   // Stepper Motors
   conveyor.setMaxSpeed(CONVEYORSTEP);
   conveyor.setAcceleration(400);
+  digitalWrite(CONVEYORPIN_DIR, ((CONVEYOR_INVERT) ? HIGH : LOW));
   // <disabled> fan.setMaxSpeed(MAXSTEP);
   dispenser.setMaxSpeed(800);
   dispenser.setAcceleration(400);
@@ -564,7 +565,7 @@ void setup() {
 // Run repeatedly
 void loop() {
   heartbeat();
-  
+
   // Light handling
   switch (status) {
     case STATUS_READY:
@@ -592,7 +593,7 @@ void loop() {
       floodColors(dormant);
       break;
   }
-  
+
   // Main logic handling
   if (serviceMsg && !isActive(STATUS_CANCEL) && !isActive(STATUS_BAKE) && !isActive(STATUS_READY)) return;
 
