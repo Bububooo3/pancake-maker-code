@@ -6,7 +6,7 @@ unsigned long MAXSTEP = 800.0;
 
 unsigned long CONVEYORSTEP = 800.0;
 
-const bool CONVEYORINVERT = true;
+const bool CONVEYOR_INVERT = true;
 
 unsigned long DISPENSERSPEED = 800.0;
 
