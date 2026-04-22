@@ -504,7 +504,7 @@ void bakeScreen() {
   }
 
   printMessage(bMsg);
-  printMessage((level < 17) ? center((level > 1) ? (String(level) + " " + spsMsg) : (String(level) + " " + spMsg)) : center(amt), 1);
+  printMessage((level < 17) ? center((level > 1) ? (String(level * 2) + " " + spsMsg) : (String(level * 2) + " " + spMsg)) : center(amt), 1);
 
   if (!dispensingActive && !dispenserHoming && difftime(millis(), t_dispense) >= COOKTIME) {
     dispensingActive = true;
