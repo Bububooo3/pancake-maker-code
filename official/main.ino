@@ -548,10 +548,10 @@ void setup() {
   // Stepper Motors
   conveyor.setMaxSpeed(CONVEYORSTEP);
   conveyor.setAcceleration(400);
-  digitalWrite(CONVEYORPIN_DIR, ((CONVEYOR_INVERT) ? HIGH : LOW));
+  digitalWrite(CONVEYORPIN_DIR, ((CONVEYORINVERT) ? HIGH : LOW));
   // <disabled> fan.setMaxSpeed(MAXSTEP);
-  dispenser.setMaxSpeed(800);
-  dispenser.setAcceleration(400);
+  dispenser.setMaxSpeed(DISPENSERSPEED);
+  dispenser.setAcceleration(DISPENSERACCEL);
 
   dispenser.moveTo(DISPENSERCLOSE);
   dispenserHoming = true;
