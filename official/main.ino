@@ -479,7 +479,7 @@ void requestScreen() {
   // Choose # Pancakes Screen
   if ((abs(level - plevel) >= 1) && isActive(STATUS_REQUEST)) {
     if (level < 17) {
-      printMessage((String(level * 2) + " " + spsMsg), 1);
+      printMessage(center(String(level * 2) + " " + spsMsg), 1);
     } else {
       printMessage(center(amt), 1);
     }
