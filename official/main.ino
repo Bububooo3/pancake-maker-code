@@ -420,6 +420,7 @@ void handleButtons() {
     clearLine();
     t_kill = millis();
     tkA = true;
+    t_confirmDebounce = millis();
   }
 
   // Baking System
