@@ -2,6 +2,8 @@
 
 > Simulator diagrams don't match real thing, bc sims don't have necessary components or capabilities
 
+> ⚠️ **There is no diagram that describes exactly the structure of the circuit. Even the one in this repository has been slightly revised in real-time during prototyping. If you're trying to replicate this project, you should be aware of this and feel free to reach out if you need to.**
+
 <hr>
 
   Right now, I do mostly electrical and software stuff and my partner Jackson does mostly mechanical and product design stuff. We work together on a lot of stuff, too.
