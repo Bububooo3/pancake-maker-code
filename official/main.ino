@@ -227,8 +227,7 @@ unsigned long difftime(unsigned long t1, unsigned long t2) {
 /////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////
 // EXTRA INTERFACE CONSTANTS (for optimization, convenience & such)
-const String spMsg = "Pancake";     // Word to show for a single pancake
-const String spsMsg = spMsg + "s";  // Word to show for >1 pancakes
+const String spsMsg = "Pancakes";    // Word to show for >1 pancakes
 const String amt = "Auto-Mode";     // Word to show for auto mode
 
 const String bMsg = center("Baking");
@@ -480,7 +479,7 @@ void requestScreen() {
   // Choose # Pancakes Screen
   if ((abs(level - plevel) >= 1) && isActive(STATUS_REQUEST)) {
     if (level < 17) {
-      printMessage(center((level > 1) ? (String(level * 2) + " " + spsMsg) : (String(level * 2) + " " + spMsg)), 1);
+      printMessage((String(level * 2) + " " + spsMsg), 1);
     } else {
       printMessage(center(amt), 1);
     }
@@ -504,7 +503,7 @@ void bakeScreen() {
   }
 
   printMessage(bMsg);
-  printMessage((level < 17) ? center((level > 1) ? (String(level * 2) + " " + spsMsg) : (String(level * 2) + " " + spMsg)) : center(amt), 1);
+  printMessage((level < 17) ? center(String(level * 2) + " " + spsMsg) : center(amt), 1);
 
   if (!dispensingActive && !dispenserHoming && difftime(millis(), t_dispense) >= COOKTIME) {
     dispensingActive = true;
