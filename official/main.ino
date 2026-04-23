@@ -547,14 +547,14 @@ void setup() {
   // Stepper Motors
   conveyor.setMaxSpeed(CONVEYORSTEP);
   conveyor.setAcceleration(400);
-  digitalWrite(CONVEYORPIN_DIR, ((CONVEYORINVERT) ? HIGH : LOW));
+  digitalWrite(CONVEYORPIN_DIR, ((CONVEYOR_INVERT) ? HIGH : LOW));
   // <disabled> fan.setMaxSpeed(MAXSTEP);
   dispenser.setMaxSpeed(DISPENSERSPEED);
   dispenser.setAcceleration(DISPENSERACCEL);
 
-  dispenser.moveTo(DISPENSERCLOSE);
   dispenserHoming = true;
-  while (dispenser.distanceToGo() != 0) dispenser.run();
+  dispenser.setCurrentPosition(DISPENSERCLOSE);
+  // while (dispenser.distanceToGo() != 0) dispenser.run();
   dispenserHoming = false;
 
   // Initialize griddle bc of heatOnBoot
