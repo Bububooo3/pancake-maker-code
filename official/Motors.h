@@ -8,9 +8,9 @@ unsigned long CONVEYORSTEP = 800.0;
 
 const bool CONVEYOR_INVERT = true;
 
-unsigned long DISPENSERSPEED = 800.0;
+const unsigned long DISPENSERSPEED = 800.0;
 
-unsigned long DISPENSERACCEL = 400.0;
+const unsigned long DISPENSERACCEL = 400.0;
 
 // Step positions (Usually 1.8°/step, 200 steps/revolution)
 const int DISPENSEROPEN = 0;
