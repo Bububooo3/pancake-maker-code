@@ -12,7 +12,7 @@ const unsigned long MSGWAIT = 1.5e3;  // Intro message display time
 
 const unsigned long ANIMINC = 0.25e3;  // Animation speed
 
-const unsigned long COOKTIME = 10e3;  // Time for one pancake on the belt
+const unsigned long COOKTIME = 60e3;  // Time for one pancake on the belt
 
 const unsigned long DEBOUNCE = .025e3;  // Time before buttons sink input again after pressed
 
