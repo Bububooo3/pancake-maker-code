@@ -26,7 +26,9 @@ bool confirmStable = LOW;                                // more reliable input
 bool cancelStable = LOW;                                 // more reliable input
 bool tkA = false;                                        // is kill mode active
 bool dispenserHoming = false;                            // is dispenser homing
-bool heatOnBoot = false;                                 // Config
+bool heatOnBoot = true;                                  // Config
+bool firstCake = false;
+bool lastCake = false;
 
 // Strings //
 String lastPrintLCD1 = "";
@@ -37,11 +39,12 @@ String placeholder = "                ";
 Status status = STATUS_REQUEST;
 
 // Numbers //
+int mlevel = 8;     // Maximum # pancakes we're able to make
 int level = 1;      // Init # pancakes to make
 int plevel = 0;     // Init previous # pancakes to make
 int dispensed = 0;  // Init # pancakes dispensed
 
-unsigned long t_bake, t_kill, t_griddle, t_dispense, t_confirmDebounce, t_cancelDebounce;  // Init timers
+unsigned long t_bake, t_kill, t_griddle, t_dispense, t_confirmDebounce, t_cancelDebounce, t_lastCake;  // Init timers
 
 
 //////////////////
@@ -227,8 +230,8 @@ unsigned long difftime(unsigned long t1, unsigned long t2) {
 /////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////
 // EXTRA INTERFACE CONSTANTS (for optimization, convenience & such)
-const String spsMsg = "Pancakes";    // Word to show for >1 pancakes
-const String amt = "Auto-Mode";     // Word to show for auto mode
+const String spsMsg = "Pancakes";  // Word to show for >1 pancakes
+const String amt = "Auto-Mode";    // Word to show for auto mode
 
 const String bMsg = center("Baking");
 
@@ -273,7 +276,7 @@ void setGriddleEnabled(bool enabled) {
 // Update griddle per heartbeat w/o yielding program
 // Returns true if griddle is fully cooled or heated
 bool updateGriddle() {
-  unsigned long elapsed = difftime(millis(), t_griddle);
+  unsigned long elapsed = difftime(t_griddle, millis());
   bool canWriteLCD = !isActive(STATUS_READY) && !isActive(STATUS_CANCEL);
 
   if (griddleEnabled) {
@@ -340,11 +343,14 @@ bool dispense() {
 
   if (!dispensingActive) return false;
 
+  if (dispensed >= level) return false;
+
   if (dispenser.distanceToGo() == 0) {
     if (dispenser.currentPosition() == DISPENSEROPEN) {
       dispenser.moveTo(DISPENSERCLOSE);
     } else if (dispenser.currentPosition() == DISPENSERCLOSE) {
       dispensingActive = false;
+      dispenser.setCurrentPosition(dispenser.currentPosition());
       return true;
     }
   }
@@ -385,13 +391,14 @@ void handleButtons() {
         setActive(STATUS_REQUEST);
         t_kill = 0;
         tkA = false;
+        lastCake = false;
         clearLine();
         printMessage(center("[please wait]"));
         plevel = -1;
         break;
 
       case STATUS_REQUEST:
-        level = map(analogRead(A0), 0, 1023, 1, 17);
+        level = map(analogRead(A0), 0, 1023, 1, mlevel);
         if (!heatOnBoot) setGriddleEnabled(true);
 
         t_bake = now;
@@ -399,9 +406,11 @@ void handleButtons() {
         griddleReadyPrev = false;
         dispensingActive = false;
         dispenserHoming = false;
+        lastCake = false;
         dispensed = 0;
 
         clearLine();
+        firstCake = true;
         setActive(STATUS_BAKE);
         break;
 
@@ -414,11 +423,16 @@ void handleButtons() {
   // Cancel button pressed
   if (cancelPressed && !cancelPressedPrev) {
     setActive(STATUS_CANCEL);
-    setGriddleEnabled(false);
+
+    if (!heatOnBoot) {
+      setGriddleEnabled(false);
+    }
+
     homeDispenser();
     clearLine();
     t_kill = millis();
     tkA = true;
+    lastCake = false;
     t_confirmDebounce = millis();
   }
 
@@ -451,13 +465,21 @@ void updateMotors() {
   if (cycleComplete) {
     dispensed++;
     t_dispense = millis();
-    if (level < 17 && dispensed >= level) {
-      bakeComplete();
+
+    if (level < mlevel && dispensed >= level) {
+      lastCake = true;
+      t_lastCake = millis();
       return;
     }
   }
 
-  if (level == 17 && difftime(millis(), t_bake) >= AUTOTIMEOUT) bakeComplete();
+  if (lastCake && difftime(t_lastCake, millis()) >= COOKTIME) {
+    lastCake = false;
+    bakeComplete();
+    return;
+  }
+
+  if (level == mlevel && difftime(t_bake, millis()) >= AUTOTIMEOUT) bakeComplete();
 }
 
 // Update per heartbeat fxn
@@ -473,12 +495,14 @@ void heartbeat() {
 
 // The screen for asking for pancakes
 void requestScreen() {
-  // Map 0-1023 :: 1–17
-  level = map(analogRead(A0), 0, 1023, 1, 17);
+  // Map 0-1023 :: 1–mlevel
+  level = map(analogRead(A0), 0, 1023, 1, mlevel);
+
+  printMessage(center("Bake how many?"));
 
   // Choose # Pancakes Screen
   if ((abs(level - plevel) >= 1) && isActive(STATUS_REQUEST)) {
-    if (level < 17) {
+    if (level < mlevel) {
       printMessage(center(String(level * 2) + " " + spsMsg), 1);
     } else {
       printMessage(center(amt), 1);
@@ -492,7 +516,9 @@ void requestScreen() {
 // Runs when baking is finished
 void bakeComplete() {
   setActive(STATUS_READY);
-  setGriddleEnabled(false);
+  if (!heatOnBoot) {
+    setGriddleEnabled(false);
+  }
 }
 
 // Display while baking
@@ -503,9 +529,10 @@ void bakeScreen() {
   }
 
   printMessage(bMsg);
-  printMessage((level < 17) ? center(String(level * 2) + " " + spsMsg) : center(amt), 1);
+  printMessage((level < mlevel) ? center(String(level * 2) + " " + spsMsg) : center(amt), 1);
 
-  if (!dispensingActive && !dispenserHoming && difftime(millis(), t_dispense) >= COOKTIME) {
+  if (!lastCake && ((firstCake) || (!dispensingActive && !dispenserHoming && (difftime(t_dispense, millis()) >= COOKTIME)))) {
+    firstCake = false;
     dispensingActive = true;
     dispenser.moveTo(DISPENSEROPEN);
   }
@@ -548,12 +575,13 @@ void setup() {
   conveyor.setMaxSpeed(CONVEYORSTEP);
   conveyor.setAcceleration(400);
   digitalWrite(CONVEYORPIN_DIR, ((CONVEYOR_INVERT) ? HIGH : LOW));
+  digitalWrite(DISPENSERPIN_DIR, ((DISPENSER_INVERT) ? HIGH : LOW));
   // <disabled> fan.setMaxSpeed(MAXSTEP);
   dispenser.setMaxSpeed(DISPENSERSPEED);
   dispenser.setAcceleration(DISPENSERACCEL);
 
   dispenserHoming = true;
-  dispenser.setCurrentPosition(DISPENSERCLOSE);
+  dispenser.setCurrentPosition(dispenser.currentPosition());
   // while (dispenser.distanceToGo() != 0) dispenser.run();
   dispenserHoming = false;
 
@@ -569,27 +597,27 @@ void loop() {
   // Light handling
   switch (status) {
     case STATUS_READY:
-      if (getLEDUnchanged(valid)) break;
+      // if (getLEDUnchanged(valid)) break;
       floodColors(valid);
       break;
 
     case STATUS_REQUEST:
-      if (getLEDUnchanged(rqst)) break;
+      // if (getLEDUnchanged(rqst)) break;
       floodColors(rqst);
       break;
 
     case STATUS_BAKE:
-      if (getLEDUnchanged(warning)) break;
+      // if (getLEDUnchanged(warning)) break;
       floodColors(warning);
       break;
 
     case STATUS_CANCEL:
-      if (getLEDUnchanged(danger)) break;
+      // if (getLEDUnchanged(danger)) break;
       floodColors(danger);
       break;
 
     case STATUS_EMPTY:
-      if (getLEDUnchanged(dormant)) break;
+      // if (getLEDUnchanged(dormant)) break;
       floodColors(dormant);
       break;
   }
@@ -602,7 +630,7 @@ void loop() {
       printMessage(eMsg1);
       printMessage(eMsg2, 1);
 
-      if (tkA && difftime(millis(), t_kill) >= KILLTIMEOUT) {
+      if (tkA && difftime(t_kill, millis()) >= KILLTIMEOUT) {
         tkA = false;
         clearLine();
         requestNumPancakes();
