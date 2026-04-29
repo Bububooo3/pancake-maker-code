@@ -59,10 +59,6 @@
 
 ---
 
-# TIMELINES
-
----
-
 # LEARNED SKILLS
 
 ## JACKSON
