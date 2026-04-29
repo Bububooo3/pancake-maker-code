@@ -1,5 +1,7 @@
 <h2>Automatic Pancake Maker</h2>
 
+My first Arduino/electrical project! 
+
 > Simulator diagrams don't match real thing, bc sims don't have necessary components or capabilities
 
 > [!WARNING]
