@@ -4,6 +4,19 @@
 
 ---
 
+<img width="780" height="585" alt="37a45351-c71d-4843-ae40-1737299c53a4" src="https://github.com/user-attachments/assets/95fe8246-5d1f-4575-9f03-1bf4a9d8878c" />
+
+---
+
+<details>
+  <summary>See Video Demo</summary>
+  
+  https://github.com/user-attachments/assets/425521ff-0307-458f-a22e-615c610f6d97
+  
+  </details>
+
+---
+
 > [!NOTE]
 > For this project, we designed and constructed a machine that takes in batter and produces pancakes. The machine dispenses batter onto a heated conveyor belt, which moves the batter towards the exit slot based on a timer. A heated top conveyor belt above the pancake works with the heated conveyor on the bottom to squeeze the pancake and dispense it through this slot. The machine is well-insulated, and Arduino-driven electrical work can be concentrated below or next to the product. A user-interface on the machine lets users know what is happening and what they need to do using an LED strip and a LCD display.
 
