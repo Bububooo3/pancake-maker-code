@@ -16,7 +16,7 @@ https://github.com/Bububooo3/pancake-maker-code/blob/main/Pancake%20Maker%20Elec
 
 
 <hr>
-<h3>Wokwi (Current system)</h3>
+<h3>Wokwi ("Current" system)</h3>
 
 https://wokwi.com/projects/449513725919513601
 
