@@ -4,6 +4,8 @@ My first Arduino/electrical project!
 
 > Simulator diagrams don't match real thing, bc sims don't have necessary components or capabilities
 
+View up-to-date hand-drawn diagram [here](https://github.com/Bububooo3/Automatic-Pancake-Maker/blob/main/Diagrams/Pancake%20Maker%20Wiring%20Diagram.pdf)
+
 <hr>
   I did mostly electrical and software stuff and my partner Jackson does mostly mechanical and product design stuff. We worked together on a lot of stuff, too.
 <hr>
