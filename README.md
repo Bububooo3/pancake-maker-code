@@ -15,6 +15,10 @@
   
   </details>
 
+<br>
+
+[See electrical diagram](https://github.com/Bububooo3/Automatic-Pancake-Maker/blob/main/Diagrams/Pancake%20Maker%20Wiring%20Diagram.pdf)
+
 ---
 
 > [!NOTE]
