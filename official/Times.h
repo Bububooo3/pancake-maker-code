@@ -2,9 +2,9 @@
 #define TIMES_H
 
 // (Miliseconds)
-const unsigned long HEATUP = 40e3;  // Time it takes for the griddle to turn on
+const unsigned long HEATUP = 120e3;  // Time it takes for the griddle to turn on
 
-const unsigned long COOLDOWN = 40e3;  // Time it takes for the griddle to turn off
+const unsigned long COOLDOWN = 3e3;  // Time it takes for the griddle to turn off
 
 const unsigned long KILLTIMEOUT = 60e3;  // Maximum time allowed to remain in terminated state
 
